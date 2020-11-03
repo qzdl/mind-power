@@ -1,0 +1,19 @@
+{
+  "main": "index.js",
+  "dependencies": {
+    "@antv/g6": "latest",
+    "react-router-dom": "^5.2.0"
+  },
+  "name": "jjxci",
+  "description": null,
+  "version": "0.0.829",
+  "devDependencies": {
+    "react-scripts": "1.0.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  }
+}

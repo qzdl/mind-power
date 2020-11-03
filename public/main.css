@@ -1,0 +1,57 @@
+* {
+    box-sizing: border-box;
+    font-family: "Fira Code";
+  }
+
+  #root {
+    position: relative;
+  }
+  #editor-container {
+    position: absolute;
+    top: 1rem
+  }
+  #editor {
+    
+  }
+// TODO save texturebg to local file
+html, , .navigation {
+    // accent
+      background-color: #cbbc82!important;
+      background-image: url(./textured-paper.png);
+      color: #eee;
+  }
+
+  .navigation  a {
+      color: #444;
+  }
+
+  .navigation {
+      background-color: #cbbc82 !important;
+      background-image: url(./textured-paper.png);
+      margin-bottom: 2rem;
+  }
+
+  body {
+      background-color: #dacea5 !important;
+      background-image: url(./textured-paper.png);
+      padding-bottom: 2rem;
+  }
+
+  .card {
+      background-color: #dacea5;
+      background-image: url(./textured-paper.png);
+      border: solid 1px #e8e1c8 !important;
+      margin: 1rem;
+      box-shadow: .1rem .1rem .1rem #c7bfa1;
+  }
+
+  input {
+    width: 100%;
+    height: 5rem;
+    font-size: 2rem;
+    border-radius: 1rem;
+    border: none;
+    background-color: #cbbc82;
+    background-image: url(./textured-paper.png);
+    padding: 0 1rem;
+  }
