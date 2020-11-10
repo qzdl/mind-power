@@ -1,8 +1,6 @@
 import G6 from "@antv/g6";
 import settings from  "./settings"
 
-// TODO force layout
-
 let addedCount = 0;
 
 // TODO determine imode by nature of interaction
@@ -190,36 +188,57 @@ const fisheye = new G6.Fisheye({
   showDPercent: false
 });
 
+const minimap = new G6.Minimap({
+  size: [150, 100],
+});
+
+G6.registerNode(
+  'dom-node',
+  {
+    draw: (cfg: ModelConfig, group: Group) => {
+      return group.addShape('dom', {
+        attrs: {
+          width: cfg.size[0],
+          height: cfg.size[1],
+          // DOM's html with onclick event
+          html: `
+        <div onclick="alert('Hi')" >
+         <h4>${cfg.label || ''}</h4>
+   
+          <div style="height: 100%; width: 100%;">
+            ${cfg.data}
+          </div>
+
+        </div>
+          `,
+          draggable: true,
+        },
+        name: 'dom-node',
+        draggable: true,
+      });
+    },
+  },
+  'single-node',
+);
 
 // TODO zoom (plugin?)
 let makeGraph = () =>
   new G6.Graph({
     container: "container",
-    width: 2000,
-    height: 1000,
+    width: window.innerWidth * .9,
+    height: window.innerHeight * .9,
     fitView: true,
     animate: true,
-    layout: radial,
+    renderer: 'svg',
+    layout: dagre,
     modes: {
-      default: ["drag-node", "zoom-canvas", "drag-canvas", "click-select"],
+      default: ["drag-node", "zoom-canvas",],   //"drag-canvas", "click-select"],
       addNode: ["click-add-node", "click-select"],
       addEdge: ["click-add-edge", "click-select"]
     },
     defaultNode: {
-      shape: "modelRect",
-      size: [20], // TODO node size to content https://g6.antv.vision/en/docs/manual/middle/elements/shape/shape-keyshape
-      color: "#5B8FF9",
-      style: {
-        fill: "#9EC9FF",
-        lineWidth: 3
-      },
-      // html: "",
-      labelCfg: {
-        style: {
-          fill: "#fff",
-          fontSize: 9
-        }
-      }
+      type: "dom-node",
+      size: [200, 200], // TODO node size to content https://g6.antv.vision/en/docs/manual/middle/elements/shape/shape-keyshape
     },
     defaultEdge: {
       style: {
@@ -227,15 +246,15 @@ let makeGraph = () =>
       }
     },
     // The node styles in different states
-    nodeStateStyles: {
-      // The node styles in selected state, corresponds to the built-in click-select behavior
-      selected: {
-        stroke: "#666",
-        lineWidth: 2,
-        fill: "steelblue"
-      }
-    },
-    plugins: []
+    // nodeStateStyles: {
+    //   // The node styles in selected state, corresponds to the built-in click-select behavior
+    //   selected: {
+    //     stroke: "#666",
+    //     lineWidth: 2,
+    //     fill: "steelblue"
+    //   }
+    // },
+    plugins: [minimap]
   });
 
 let makeSubGraph = () => new G6.Layout['force']({

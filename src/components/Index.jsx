@@ -25,7 +25,7 @@ let  ftindex =  elasticlunr(function() {
   this.saveDocuments = true
 })
 
-data.map(e => ftindex.addDoc(e))
+
 
 class Index extends Component {
   state = {

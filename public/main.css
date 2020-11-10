@@ -3,6 +3,11 @@
     font-family: "Fira Code";
   }
 
+#container {
+    position: relative;
+    z-index: 0;
+}
+
   #root {
     position: relative;
   }
@@ -13,8 +18,21 @@
   #editor {
     
   }
+
+  .thing {
+    position: fixed;
+    min-height: 100px;
+    min-width: 100px;
+    max-width: 300px;
+    overflow: hide;
+    overflow-wrap: break-word;
+    background: #eee;
+    z-index: 1;
+    padding: 15px;
+  }
+
 // TODO save texturebg to local file
-html, , .navigation {
+html,  .navigation {
     // accent
       background-color: #cbbc82!important;
       background-image: url(./textured-paper.png);
@@ -54,4 +72,12 @@ html, , .navigation {
     background-color: #cbbc82;
     background-image: url(./textured-paper.png);
     padding: 0 1rem;
+  }
+
+  .debug #container, .debug .space, .debug .thing {
+    outline: solid red 1px;
+  }
+
+  .debug #container {
+    overflow: scroll
   }
