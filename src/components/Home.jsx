@@ -60,15 +60,9 @@
 */
 
 import React from "react";
-import Graph from '../graph.js'
 
-class Home extends React.Component {
 
-  state = {
-    stack: {},
-    shape: {},
-    view:  {},
-    things: {
+let objthings = {
       nodes: [
         {
           id: '0',
@@ -222,13 +216,11 @@ enter->quote
           content: 'block'
         },
         {
-          id: '28',
-          data: ' roamresearch: https://roamresearch.com/',
-          content: 'block'
-        },
+          id: '28', data: ' roamresearch: https://roamresearch.com/', content:
+          'block' },
         {
           id: '29',
-          data: 'org-roam:     https://orgroam.com/',
+          data: 'org-roam: https://orgroam.com/',
           content: 'block'
         },
         {
@@ -262,63 +254,41 @@ enter->quote
           content: 'block'
         }
       ],
-      edges: [
-        {
-          source: '1',
-          target: '3'
-        },
-        {
-          source: '33',
-          target: '34'
-        },
-        {
-          source: '33',
-          target: '35'
-        },
-        {
-          source: '24',
-          target: '25'
-        },
-        {
-          source: '24',
-          target: '26'
-        },
-        {
-          source: '24',
-          target: '27'
-        },
-        {
-          source: '24',
-          target: '28'
-        },
-        {
-          source: '24',
-          target: '29'
-        },
-        {
-          source: '24',
-          target: '30'
-        },
-        {
-          source: '24',
-          target: '31'
-        },
-        {
-          source: '24',
-          target: '32'
-        }
-      ]
-    },
+  edges: [
+    { source: '1',  target:  '3' }, { source: '33', target: '34' },
+    { source: '33', target: '35' }, { source: '24', target: '25' },
+    { source: '24', target: '26' }, { source: '24', target: '27' },
+    { source: '24', target: '28' }, { source: '24', target: '29' },
+    { source: '24', target: '30' }, { source: '24', target: '31' },
+    { source: '24', target: '32' }, {source: '1', target: '35'}
+  ]
+}
 
-    currentSpace: (() => {
-      try {
-        return Graph.getNodeByName(this.things, '1')
-      } catch (e) {
-        return {label: 'ph fck oh shit'}}})()
+let initthings = {
+  nodes: new Map(),
+  edges: new Map()
+}
 
+objthings.nodes.map(e => {
+   initthings.nodes.set(e.id, e)
+})
+
+objthings.edges.map(e => {
+  initthings.edges.set(e.source+','+e.target, e)
+})
+
+console.log('initthings: ',initthings)
+
+
+class Home extends React.Component {
+
+  state = {
+    stack: {},
+    shape: {},
+    view:  {},
+    things: initthings,
+    currentSpace: initthings.nodes.get('1')
   }
-
-
 
   componentDidMount() {
     if (!this.state.things || Object.keys(this.state.things).length === 0) {
@@ -327,56 +297,43 @@ enter->quote
     }
     console.log('mount: ', this.state.things)
 
-    document.getElementById('print').onclick = (() => console.log(JSON.stringify(this.state.things, null, 2))).bind(this)
-
-    let currentSpace = Graph.getNodeByName(this.state.things, '1')[0]
+    let currentSpace = this.state.things.nodes.get('1')
     this.setState({currentSpace})
 
     // worst-case O(n+m)
     let m = new Map();
-    this.state.things.edges.map(e => {
+    let E = this.state.things.edges.forEach(e => {
       if (e.source === currentSpace.id) {
         m.set(e.source, e)
         m.set(e.target, e)
       }
     })
 
-    console.log(this.state.things.nodes.filter(e => m.get(e.id)))
+    let c = new Map()
+    const k = m.keys()
+    this.state.things.nodes.forEach(e => {
+      for (const item of k) {
+        console.log('join key: ', item)
+        if (item === e.id) {
+          c.set(e.id, e)
+        }
+      }
+    })
 
+    console.log('join: ', c)
     this.mountSpace()
 
   }
 
   mountSpace() {
     // (evt) resize to window
-   window.addEventListener('resize', () => {
+    window.addEventListener('resize', () => {
       let c = document.getElementById('container')
       c.style.height =  (window.innerHeight * .8)+ "px";
-     console.log('resize: ', c.style.height)
-     this.setState({view: {}})
-   })
+      console.log('resize: ', c.style.height)
+      this.setState({view: {}})
+    })
 
-    /*
-       a space; an explicit organisation of things, with a name
-
-   has some data
-     shape:  dimensions of the space
-     view:   the part of the space being seen (x y)
-     things: a list of things with positional information
-     stack:  a stack/tree of breadcrumbs of places past
-
-   has some gestures
-     create:   add a new /thing/
-     conjoin:  add /things/ from the /index/
-     reflect:  view /interesting/ things about your /context/
-     navigate: move around the /space/
-     place:    move things around the /space/
-     exit:     get out of the given /thing/
-     enter:    go into a given /thing/
-     inspect:  get information from a /thing/
-     focus:    select /things/
-
-    */
     let space = document.getElementById('container')
     let things = document.getElementsByClassName('thing')
 
@@ -392,7 +349,6 @@ enter->quote
 
     // (evt) move
     // fucking js collections; why isn't a map a sequence
-
     for (var i=0;i<things.length;i++) {
       let e = things[i]
       this.bindEvents(e)
@@ -403,7 +359,6 @@ enter->quote
     e.onmousedown = this.move.bind(this)
     e.ondragstart = () => false
   }
-
 
   create(point) {
     console.log('create: ', point, point.target.id)
@@ -428,7 +383,17 @@ enter->quote
 
   updatePosition(elem) {
     // things are positioned with respect to a space by their edge
-    console.log('updatePositon: ', elem)
+    console.log('updatePosition: ', elem)
+
+    let t = this.state.things;
+    let eid = this.state.currentSpace.id+","+elem.id;
+
+    console.log('ud: ', eid, t);
+    let edge = t.edges.get(eid);
+    [edge.x, edge.y] = [elem.style.left, elem.style.top]
+    t.edges.set(eid, edge)
+    this.setState({ things: t })
+
   }
 
   navigate(point) {
@@ -479,7 +444,7 @@ enter->quote
 
     function onMouseMove(e) {
       e.preventDefault()
-      moveAt(e.pageX, e.pageY);
+      moveAt(e.pageX, e.pageY)
     }
 
     // move the elem on mousemove
@@ -511,7 +476,7 @@ enter->quote
     console.log('movePermit: ', e)
     e.style.top = this.unit(10)
     e.style.left = this.unit(10)
-    console.log(e.style)
+
   }
 
   unit(v) {
@@ -519,14 +484,18 @@ enter->quote
   }
 
   renderItems() {
-    return this.state.things.nodes.map(e => {
-      return <div
+    let c = []
+    this.state.things.nodes.forEach(e => {
+      console.log('rednerItems: ', e)
+      c.push(<div
                className={"thing " + (e.content === 'space' && e.content) || ''}
                id={e.id}>
         <h4>{e.label}</h4>
         <p>{e.data}</p>
-      </div>
+             </div>)
+
     })
+    return c
   }
 
   render() {
