@@ -27,20 +27,30 @@
     overflow-wrap: break-word;
     background: #eee;
     z-index: 1;
-    padding: 15px;
+    padding: 10px;
 
     transition-timing-function: ease-out;
-    transition-property: transform;
+    transition-property: transform, height, box-shadow;
     transition-duration: .1s;
     box-shadow: .1rem .1rem .1rem #c7bfa1;
 
 
   }
 
+  .dropzone {
+    height: 10px;
+    transition-property: height;
+    transition-timing-function: ease-out;
+    transition-duration: .1s;
+  }
+
   .thing .mount {
     position: relative;
 
-    flex-direction: row;
+    transition-timing-function: ease-out;
+    transition-property: height, width;
+    transition-duration: 2s;
+
   }
   .thing .thing {
     border-left: solid 5px #ddd;
@@ -49,9 +59,9 @@
     margin-bottom: 10px
   }
 
-// TODO save texturebg to local file
 html,  .navigation {
     // accent
+
       background-color: #d0ccbd!important;
 
       color: #eee;
@@ -62,6 +72,7 @@ html,  .navigation {
   }
 
   .navigation {
+    position: fixed;
       background-color: #d0ccbd !important;
 
       margin-bottom: 2rem;

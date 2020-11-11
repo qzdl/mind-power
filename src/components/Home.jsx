@@ -173,7 +173,7 @@ class Home extends React.Component {
       }
       console.log(JSON.stringify({
         nodes: fucking_javascript,
-        edges: this.state.things.edges}, null, 2))
+        edges: this.state.things.edges}))
     }
 
     // mapping view to position in space (TODO scrollable bg)
@@ -250,6 +250,7 @@ class Home extends React.Component {
     }
   }
 
+  // (evt) move
   move(e) {
     e.preventDefault()
     let self = this;
@@ -260,16 +261,12 @@ class Home extends React.Component {
     }
     console.log("move:", e)
 
-
-    elem.style.transform = 'scale(1.1)'
-
-
     let r = elem.getBoundingClientRect()
     let shiftX = e.clientX - r.left;
     let shiftY = e.clientY - r.top;
 
     document.body.append(elem);
-
+    styleMoving(elem, true)
     moveAt(e.pageX, e.pageY);
 
     // moves the elem at (pageX, pageY) coordinates
@@ -281,33 +278,132 @@ class Home extends React.Component {
       elem.style.top = pageY - shiftY + 'px';
     }
 
+    function styleMoving(el, t) {
+      if (!el) return;
+
+      if (t) {
+        elem.style.transform = 'scale(1.01)'
+        elem.style.boxShadow = '.0rem .0rem .1rem .05rem #c7bfa1'
+        return
+      }
+      elem.style.transform = ''
+      elem.style.boxShadow = '.1rem .1rem .1rem #c7bfa1'
+    }
+
+
+    let dropzone = null;
+    let currentDroppable = null
+
+    // TODO make the dropzone look nice
+    // inserting element at point with respect to order?
+    // border left?
+    //
+    //
+    // TODO bounding box for dragging elements in
+    // look at hidden element that defers it's gestures nicely
+    // anywhere on the element = top in list
+    function lookDroppable(el, t) {
+      if (!el) return;
+
+      if (t) {
+        el.className += ' thing'
+        //el.style.outline = 'solid 1px red';
+        el.style.height = r.height * 1.25+ "px";
+        return
+      }
+      el.className = 'dropzone'
+      el.style.outline = '';
+      el.style.height = '';
+    }
+
+    function enterDroppable(elem) {
+      dropzone = elem
+      lookDroppable(dropzone, true)
+    }
+
+    function leaveDroppable(elem) {
+      dropzone = elem
+      lookDroppable(dropzone, false)
+    }
+
     function onMouseMove(e) {
       e.preventDefault()
       moveAt(e.pageX, e.pageY)
+
+      // TODO investigate using the bounding box to trigger 'droppable'
+      elem.hidden = true;
+      let elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      elem.hidden = false;
+
+      // mousemove events may trigger out of the window (when the ball is dragged off-screen)
+      // if clientX/clientY are out of the window, then elementFromPoint returns null
+      if (!elemBelow) return;
+
+      // potential droppables are labeled with the class "droppable" (can be other logic)
+      let droppableBelow = elemBelow.closest('.dropzone');
+      
+      if (currentDroppable != droppableBelow) {
+        // we're flying in or out...
+        // note: both values can be null
+        //   currentDroppable=null if we were not over a droppable before this event (e.g over an empty space)
+        //   droppableBelow=null if we're not over a droppable now, during this event
+
+        if (currentDroppable) {
+          // the logic to process "flying out" of the droppable (remove highlight)
+          leaveDroppable(currentDroppable);
+        }
+        currentDroppable = droppableBelow;
+        if (currentDroppable) {
+          // the logic to process "flying in" of the droppable
+          enterDroppable(currentDroppable);
+        }
+      }
     }
 
     // move the elem on mousemove
-    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mousemove', onMouseMove)
 
     // drop the element, remove unneeded handlers
-    elem.onmouseup = function() {
-      document.removeEventListener('mousemove', onMouseMove);
-      elem.onmouseup = null;
+    elem.onmouseup = mouseUp
+    document.addEventListener('mouseup', mouseUp)
 
-      // replace in container
-      document.body.removeChild(elem)
+    function mouseUp(e) {
+      // destroy events
       let c = document.getElementById('container')
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', mouseUp)
+      c.removeEventListener('mousemove', onMouseMove)
+      elem.onmousemove = null
+      elem.onmouseup = null
       c.appendChild(elem)
+
+
+      elem.hidden = true;
+      let elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      elem.hidden = false;
+      console.log("NEST IT:", e, elemBelow)
 
       // fix offset to container
       let s = elem.style.top // "327px", "1028px"
       elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
+      // resize
+      elem.style.transform = 'scale(1)'
+      lookDroppable(dropzone, false)
+      styleMoving(elem, false)
+
+      // replace in container
+      try {
+        document.body.removeChild(elem)
+         // fix offset to container
+        let s = elem.style.top // "327px", "1028px"
+        elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
+      } catch(e) {}
+
       // persist position data
       self.updatePosition(elem)
-      elem.style.transform = 'scale(1)'
+
+
     }
-
-
   }
 
   movePermit(e) {
@@ -345,6 +441,7 @@ class Home extends React.Component {
         <p>{n.data}</p>
 
         <div className="mount">
+          <div className="dropzone" />
           {c}
         </div>
      </div>
@@ -378,8 +475,6 @@ class Home extends React.Component {
     items.nodes.forEach(e => {
       if (ks.includes(e.id.toString()) || seen.includes(e.id.toString())) return;
       let edge  = items.edges[this.state.currentSpace.id][e.id]
-      console.log('edge: ',edge, e.id )
-
       col.push(this.renderThing(e, edge))
     })
 
