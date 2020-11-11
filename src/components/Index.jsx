@@ -1,6 +1,5 @@
 import React, { Component } from "react";
 import elasticlunr from "elasticlunr";
-import fs from 'fs'
 
 let data =  [
       {
@@ -87,9 +86,9 @@ class Index extends Component {
   render() {
     return (
       <div className="index">
-        <div class="container">
+        <div className="container">
         
-            <div class="col-lg-12">
+            <div className="col-lg-12">
               <input
                 placeholder="[search here...]"
                 ref={input => this.search = input}

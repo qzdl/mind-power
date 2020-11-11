@@ -20,22 +20,40 @@
   }
 
   .thing {
-    position: fixed;
+    position: absolute;
     min-height: 100px;
     min-width: 100px;
     max-width: 300px;
-    overflow: hide;
     overflow-wrap: break-word;
     background: #eee;
     z-index: 1;
     padding: 15px;
+
+    transition-timing-function: ease-out;
+    transition-property: transform;
+    transition-duration: .1s;
+    box-shadow: .1rem .1rem .1rem #c7bfa1;
+
+
+  }
+
+  .thing .mount {
+    position: relative;
+
+    flex-direction: row;
+  }
+  .thing .thing {
+    border-left: solid 5px #ddd;
+    box-shadow: none !important;
+    position: relative;
+    margin-bottom: 10px
   }
 
 // TODO save texturebg to local file
 html,  .navigation {
     // accent
-      background-color: #cbbc82!important;
-      background-image: url(./textured-paper.png);
+      background-color: #d0ccbd!important;
+
       color: #eee;
   }
 
@@ -44,20 +62,20 @@ html,  .navigation {
   }
 
   .navigation {
-      background-color: #cbbc82 !important;
-      background-image: url(./textured-paper.png);
+      background-color: #d0ccbd !important;
+
       margin-bottom: 2rem;
   }
 
   body {
-      background-color: #dacea5 !important;
-      background-image: url(./textured-paper.png);
+      background-color: #d0ccbd !important; // #d0ccbd
+
       padding-bottom: 2rem;
   }
 
   .card {
       background-color: #dacea5;
-      background-image: url(./textured-paper.png);
+
       border: solid 1px #e8e1c8 !important;
       margin: 1rem;
       box-shadow: .1rem .1rem .1rem #c7bfa1;
