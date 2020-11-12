@@ -61,8 +61,42 @@
 
 import React from "react";
 import Data from "./data";
-
 let objthings = Data.datamodel;
+
+// let objthings = {
+//   'nodes': [
+//     {
+//       id: 1,
+//       content: 'space',
+//       label: 'nested rendering example'
+//     },
+//     {
+//       id: 2,
+//       content: 'block',
+//       label: 'outermost'
+//     },
+//     {
+//       id: 3,
+//       content: 'block',
+//       label: 'middle (mostly haha)'
+//     },
+//     {
+//       id: 4,
+//       content: 'block',
+//       label: 'innermost'
+//     },
+//     {
+//       id: 5,
+//       label: 'hi chopi'
+//     }
+//   ],
+//   edges: {
+//     1: {2: {}, 3: {}, 4:{}, 5: {}},
+//     2: {3: {}, 5: {}},
+//     3: {4: {}},
+//     4: {5: {}}
+//   }
+// }
 
 let initthings = {
   nodes: new Map(),
@@ -173,7 +207,7 @@ class Home extends React.Component {
       }
       console.log(JSON.stringify({
         nodes: fucking_javascript,
-        edges: this.state.things.edges}))
+        edges: this.state.things.edges}, null ,2))
     }
 
     // mapping view to position in space (TODO scrollable bg)
@@ -182,6 +216,7 @@ class Home extends React.Component {
 
     // (evt) create
     space.onclick = this.create.bind(this)
+
 
     // (evt) navigate
     space.ondrag = this.navigate
@@ -195,12 +230,11 @@ class Home extends React.Component {
   }
 
   bindEvents(e) {
-    e.onmousedown = this.move.bind(this)
-    e.ondragstart = () => false
+
   }
 
   create(point) {
-    console.log('create: ', point, point.target.id)
+    //console.log('create: ', point, point.target.id)
 
     if (point.target.id === 'container') {
       let e = document.createElement('div');
@@ -227,8 +261,8 @@ class Home extends React.Component {
     [edge.x, edge.y] = [elem.style.left, elem.style.top]
     t.edges[this.state.currentSpace.id][elem.id] = edge;
 
-    this.setState({ things: t })
     console.log('updated ', elem.id, ' as', edge)
+    this.setState({ things: t })
   }
 
   navigate(point) {
@@ -238,7 +272,7 @@ class Home extends React.Component {
   }
 
   parentMatch(elem, depth) {
-    console.log('parentMatch: ', depth, elem)
+    //console.log('parentMatch: ', depth, elem)
     if (0 >= depth || !elem) {
       return null
     }
@@ -248,6 +282,62 @@ class Home extends React.Component {
     } else {
       return this.parentMatch(elem.parentElement, --depth)
     }
+  }
+
+  elementBelow(elem, x, y) {
+      elem.hidden = true
+      let elemBelow = document.elementFromPoint(x, y)
+      elem.hidden = false
+      return elemBelow
+  }
+
+  updateRelationship(elem, parent, x, y) {
+    let g = this.state.spaceThings;
+    const elemBelow = this.elementBelow(elem, x, y)
+    const dropTarget = elemBelow.closest('.thing')
+
+    console.log('updating childy', g, elem, dropTarget, parent)
+
+    if (parent) {
+      if (parent === dropTarget) {
+        console.log("SAME SAME SAME SAME")
+      } else {
+        console.log("DIFFERENT DIFFERENT DIFFERENT", parent.id, elem.id, g, g.edges[parent.id][elem.id])
+        // delete edge for oldparent -> elem
+        delete g.edges[parent.id][elem.id]
+      }
+
+    }
+
+    if (dropTarget) {
+      // if no edges exist for target, initialise {}
+      if (!g.edges[dropTarget.id])
+        g.edges[dropTarget.id] = {}
+
+      // add edge for target -> elem
+      g.edges[dropTarget.id][elem.id] = {}
+      this.setState({
+        spaceThings: g,
+      })
+    }
+
+    //debugger;
+  }
+
+  updateMoving(elem, parent, props) {
+    console.log('updateMoving: ', elem, parent)
+
+    let state = {moving: {
+      elem: elem,
+      x: props.x,
+      y: props.y
+    }}
+    if (parent) {
+      let g = this.state.spaceThings;
+      delete g.edges[parent.id][elem.id]
+      state.spaceThings = g
+    }
+    this.setState(state)
   }
 
   // (evt) move
@@ -265,40 +355,58 @@ class Home extends React.Component {
     let shiftX = e.clientX - r.left;
     let shiftY = e.clientY - r.top;
 
-    document.body.append(elem);
+    // shift to mouse then
+    const shift = (page, client, elem) => page - (client - elem)
+
+    let directParent = elem.parentElement
+    directParent = (directParent && directParent.closest('.thing')) || null
+    console.log('MOVING VALS DEBUG', e, directParent, e.clientY,
+                'y epsilom',
+               elem.offsetTop)
+
+
+    let epsilonY = (directParent && elem.offsetTop) || 0
+    let epsilonX= (directParent && elem.offsetLeft) || 0
+    self.updateMoving(elem, directParent, {
+      mouseMove,
+      x: e.pageX - shiftX - epsilonX,
+      y: e.pageY - shiftY - epsilonY
+    })
+
     styleMoving(elem, true)
-    moveAt(e.pageX, e.pageY);
+    moveAt(elem, e.pageX, e.pageY);
+
+    // bind to docu
+    // TODO enclose callbacks with elem as parameter
+    document.addEventListener('mousemove', mouseMove)
+    document.addEventListener('mouseup', mouseUp)
+
+
+    let dropzone = null;
+    let currentDroppable = null
 
     // moves the elem at (pageX, pageY) coordinates
     // taking initial shifts into account
-    function moveAt(pageX, pageY) {
+    function moveAt(elem, pageX, pageY) {
+
       elem.style.position = 'absolute';
       elem.style.zIndex = 1000;
-      elem.style.left = pageX - shiftX + 'px';
-      elem.style.top = pageY - shiftY + 'px';
+      elem.style.left = self.unit(pageX - shiftX - epsilonX)
+      elem.style.top = self.unit(pageY - shiftY - epsilonY)
     }
 
     function styleMoving(el, t) {
       if (!el) return;
 
       if (t) {
-        elem.style.transform = 'scale(1.01)'
+        el.style.transform = 'scale(1.01)'
         elem.style.boxShadow = '.0rem .0rem .1rem .05rem #c7bfa1'
         return
       }
-      elem.style.transform = ''
-      elem.style.boxShadow = '.1rem .1rem .1rem #c7bfa1'
+      el.style.transform = ''
+      el.style.boxShadow = '.1rem .1rem .1rem #c7bfa1'
     }
 
-
-    let dropzone = null;
-    let currentDroppable = null
-
-    // TODO make the dropzone look nice
-    // inserting element at point with respect to order?
-    // border left?
-    //
-    //
     // TODO bounding box for dragging elements in
     // look at hidden element that defers it's gestures nicely
     // anywhere on the element = top in list
@@ -306,7 +414,7 @@ class Home extends React.Component {
       if (!el) return;
 
       if (t) {
-        el.className += ' thing'
+        el.className += ' fauxthing'
         //el.style.outline = 'solid 1px red';
         el.style.height = r.height * 1.25+ "px";
         return
@@ -326,83 +434,67 @@ class Home extends React.Component {
       lookDroppable(dropzone, false)
     }
 
-    function onMouseMove(e) {
+    function mouseMove(e) {
       e.preventDefault()
-      moveAt(e.pageX, e.pageY)
+
+      elem = document.getElementById(elem.id)
+      if (!elem) {
+        console.log('move, no ELEM!!!!')
+        return
+      }
+      moveAt(elem, e.pageX, e.pageY)
 
       // TODO investigate using the bounding box to trigger 'droppable'
-      elem.hidden = true;
-      let elemBelow = document.elementFromPoint(e.clientX, e.clientY);
-      elem.hidden = false;
+      let elemBelow = self.elementBelow(elem, e.clientX, e.clientY);
+      if (!elemBelow)
+        return;
 
-      // mousemove events may trigger out of the window (when the ball is dragged off-screen)
-      // if clientX/clientY are out of the window, then elementFromPoint returns null
-      if (!elemBelow) return;
-
-      // potential droppables are labeled with the class "droppable" (can be other logic)
       let droppableBelow = elemBelow.closest('.dropzone');
-      
-      if (currentDroppable != droppableBelow) {
-        // we're flying in or out...
-        // note: both values can be null
-        //   currentDroppable=null if we were not over a droppable before this event (e.g over an empty space)
-        //   droppableBelow=null if we're not over a droppable now, during this event
+      if (currentDroppable !== droppableBelow) { // TODO check if strict is okay
+        // moving in or out
+        //   currentDroppable if we were not over a droppable before this event (e.g over an empty space)
+        //   droppableBelow   if we're not over a droppable now, during this event
 
-        if (currentDroppable) {
-          // the logic to process "flying out" of the droppable (remove highlight)
+        if (currentDroppable)
           leaveDroppable(currentDroppable);
-        }
+
         currentDroppable = droppableBelow;
-        if (currentDroppable) {
-          // the logic to process "flying in" of the droppable
+
+        if (currentDroppable)
           enterDroppable(currentDroppable);
-        }
       }
     }
 
-    // move the elem on mousemove
-    document.addEventListener('mousemove', onMouseMove)
-
-    // drop the element, remove unneeded handlers
-    elem.onmouseup = mouseUp
-    document.addEventListener('mouseup', mouseUp)
-
     function mouseUp(e) {
       // destroy events
+      //console.log('mouseUp: ', e)
+
       let c = document.getElementById('container')
-      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mousemove',mouseMove)
       document.removeEventListener('mouseup', mouseUp)
-      c.removeEventListener('mousemove', onMouseMove)
+      c.removeEventListener('mousemove', mouseMove)
+
       elem.onmousemove = null
       elem.onmouseup = null
       c.appendChild(elem)
 
-
-      elem.hidden = true;
-      let elemBelow = document.elementFromPoint(e.clientX, e.clientY);
-      elem.hidden = false;
-      console.log("NEST IT:", e, elemBelow)
-
-      // fix offset to container
-      let s = elem.style.top // "327px", "1028px"
-      elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
       // resize
       elem.style.transform = 'scale(1)'
       lookDroppable(dropzone, false)
       styleMoving(elem, false)
+      elem.style.zIndex = ''
+      // fix offset to container
+      //let s = elem.style.top // "327px", "1028px"
+      //elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
 
-      // replace in container
-      try {
-        document.body.removeChild(elem)
-         // fix offset to container
-        let s = elem.style.top // "327px", "1028px"
-        elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
-      } catch(e) {}
-
-      // persist position data
+      // update state
+      self.updateRelationship(elem, directParent, e.clientX, e.clientY)
       self.updatePosition(elem)
+      self.setState({moving: null})
 
-
+      let p = document.createElement('p')
+      p.text = 'this one had the mouseUp'
+      elem.appendChild(p)
     }
   }
 
@@ -430,15 +522,27 @@ class Home extends React.Component {
     if (e) {
       style.top = e.y
       style.left = e.x
+    } else {
+      style.backgroundColor = 'chucknorris'
+    }
+
+    if (this.state.moving && this.state.moving.elem.id === n.id.toString()) {
+      // TODO clean up `+ 'px'`
+      style.top = this.unit(this.state.moving.y)
+      style.left = this.unit(this.state.moving.x)
     }
 
     return (
-      <div className={"thing " + (n.content === 'space' && n.content) || ''}
+      <div className={"thing" + ((n.content === ' space' && n.content) || '')}
            id={n.id}
            key={n.id}
-           style={style}>
+           style={style}
+           onMouseDown={this.move.bind(this)}
+           onDragStart={null}
+      >
         <h4>{n.label}</h4>
         <p>{n.data}</p>
+        <p><small>{new Date().toLocaleString()}</small></p>
 
         <div className="mount">
           <div className="dropzone" />
@@ -448,53 +552,96 @@ class Home extends React.Component {
     )
   }
 
-  // TODO recursion for arbitrary nesting
+  renderNest(items, node, self, top) {
+    // expand children
+
+    if (!node || !items || !self)
+      return
+
+    let not_top = [(!top && node) || null]
+
+    // don't render position information if !top
+    let edge = (top && items.edges[self.state.currentSpace.id][node]) || null
+    let k = items.edges[node]
+    if (k) {
+      const kids = Object.keys(k)
+      if (kids && kids.length > 0) {
+        let thing = self.renderThing(
+            items.nodes.get(parseInt(node, 10)),
+            edge,
+            kids.map(e => {
+              let {tops, thing} = this.renderNest(items, e, self, false)
+              not_top = not_top.concat(tops)
+              return thing
+            }))
+
+        return {
+          tops: not_top,
+          thing: thing
+        }
+      }
+    }
+
+    return {
+      tops: not_top,
+      thing: self.renderThing(items.nodes.get(parseInt(node, 10)), edge)
+    }
+  }
+
   renderItems(items) {
     if (!items) return null;
-
-    let seen = []
-
-    // with children
-    let ks = Object.keys(items.edges).filter(e => e != this.state.currentSpace.id)
-    console.log(ks, Object.keys(items.edges))
-
     let col = []
-    let nested  = ks.map(e => {
-      const kids =Object.keys(items.edges[e])
-      seen = seen.concat(kids.concat([e]))
-
-      const el = items.nodes.get(parseInt(e, 10))
-      const ki = kids.map(k => this.renderThing(
-        items.nodes.get(parseInt(k, 10))))
-
-      // containing
-      return this.renderThing(
-        el, items.edges[this.state.currentSpace.id][e], ki)
-    }).filter(e => e) // drop nulls
+    let not_top = []
 
     items.nodes.forEach(e => {
-      if (ks.includes(e.id.toString()) || seen.includes(e.id.toString())) return;
-      let edge  = items.edges[this.state.currentSpace.id][e.id]
-      col.push(this.renderThing(e, edge))
+      const {tops, thing}  = this.renderNest(items, e.id, this, true)
+      not_top = not_top.concat(tops)
+      if (not_top.includes(e.id.toString())) return; // render unique top-down
+      col.push(thing)
     })
 
-    col = col.concat(nested)
     return col
+  }
+
+
+  // TODO allow multiple
+  renderMoving() {
+    if (!this.state.moving)
+      return
+
+    let {thing} = this.renderNest(this.state.spaceThings, this.state.moving.id, this, true)
+    thing.onMouseMove = this.state.moving.mouseMove;
+    thing.onMouseUp = this.state.mouseUp;
+        thing.style = {
+      left: this.state.moving.x + "px",
+      top: this.state.moving.y + 'px',
+    }
+    console.log('render moving:', thing)
+    return thing
   }
 
   render() {
 
-    console.log('home, render')
-
+    // TODO rendering of duplicates (indended stuff / quotes)
+    // TODO remove, replace (trnasclusion stuff)
+    console.log('home, render', this.state.moving)
+// {this.renderMoving()}
     return (
-      <div className="home">
+      <div id="home">
+
         <div id="container" style={{height: window.innerHeight * .8 }}>
           <h2 id="currentSpaceName">{this.state.currentSpace.label}</h2>
+
           {
             this.renderItems(this.state.spaceThings)
           }
         </div>
         <button id="print">print things</button>
+        <textarea id='currentspace'
+                  readOnly={true}
+                  value={JSON.stringify(this.state.spaceThings, null, 4)} style={{height: "500px", width: '500px'}}
+
+        />
       </div>
 
     );

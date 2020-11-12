@@ -52,7 +52,7 @@
     transition-duration: 2s;
 
   }
-  .thing .thing {
+  .thing .thing, .thing .fauxthing {
     border-left: solid 5px #ddd;
     box-shadow: none !important;
     position: relative;
