@@ -108,6 +108,28 @@ class Home extends React.Component {
     return s;
   }
 
+  // (evt) edit
+  edit(item) {
+    console.log('edit: ', item)
+    let elem = document.getElementById(item)
+
+    if (!elem)
+      return
+
+    let data = elem.getElementsByClassName('data')[0]
+    let editor = document.createElement('textarea')
+    editor.value = data.text
+    data.innerHTML = null
+    data.appendChild(editor)
+    editor.focus()
+  }
+
+  componentDidUpdate() {
+    //if (document.ctx)  document.ctx.position()
+    if (this.state.editing)
+      this.edit(this.state.editing)
+  }
+
   componentDidMount() {
     if (!this.state.things || Object.keys(this.state.things).length === 0) {
       console.log('mount: things is empty');
@@ -198,32 +220,36 @@ class Home extends React.Component {
     space.ondrag = this.navigate
   }
 
-  create(point) {
-    console.log('create: ', point, point.target.id)
-
-    if (point.target.id !== 'container')
-      return
-
-    //this.addThing({x: point.layerX, y: point.layerY)
+  addThing(props) {
+    const {x, y, data, content, parent} = props
     let t = this.state.things
     let s = this.state.currentSpace
     let n = {
       id: this.state.things.newId(),
-      content: 'block',
-      data: "  "
+      content: content || "block",
+      data: data || " ",
+
     }
     t.edges[s.id][n.id] = {}
+    if (parent)
+      t.edges[parent][n.id] = {}
     let e = t.edges[s.id][n.id]
-    e = {x: point.layerX,
-         y: point.layerY}
+    e = {x,y}
     t.nodes.set(n.id, n)
     t.edges[s.id][n.id] = e
     this.setState({
       things: t,
       spaceThings: this.spaceGraph(t, s)
     })
+  }
 
-    console.log(t)
+  create(point) {
+    console.log('create: ', point, point.target.id)
+
+    if (point.target.id !== 'container')
+      return
+
+    this.addThing({x: point.layerX, y: point.layerY})
   }
 
   navigate(point) {
@@ -307,13 +333,14 @@ class Home extends React.Component {
   .zooming {
     z-index: 9999;
     transform-origin: 0 0;
-    transition: transform .3s ease-in
-    transform: scaleX(${x}) scaleY(${y})
+    transition: translate .5s, transform .5s;
+    transform: scaleX(${x}) scaleY(${y});
+    translate: -${elem.style.left} -${elem.style.top};
   }
     `
     document.body.appendChild(style)
     elem.className += ' zooming'
-    setTimeout(onZoomEnd, 200)
+    setTimeout(onZoomEnd, 500)
 
 
     function onZoomEnd(e) {
@@ -358,7 +385,9 @@ class Home extends React.Component {
     const c = document.getElementById('container')
     c.appendChild(ctx)
 
-    createButton('[+]', null)
+    createButton('[+]', function() {
+      self.addThing({parent: ctx.target})
+    })
     createButton('" "', null)
     createButton('[i]', function() {
       const j = i => JSON.stringify(i, null, 4) + '\n'
@@ -370,11 +399,13 @@ class Home extends React.Component {
     document.body.addEventListener('mousedown', removeContext)
     document.body.addEventListener('mouseup', removeContext)
 
-    ctx.className += ' active'
+    ctx.position = position
     document.ctx = ctx
 
     // position appropriately
     position()
+
+    ctx.className += ' active'
 
     function removeContext(ev) {
       console.log('removeContext')
@@ -382,8 +413,8 @@ class Home extends React.Component {
       // keep ctx if click is on target or ctx
       let below = belowThing(ev)
       if (ev.buttons != 4 &&
-          (below && below.id === elem.id) ||
-          belowThing(ev, '.context'))
+          ((below && below.id === elem.id) ||
+           belowThing(ev, '.context')))
         return
 
       // fade out
@@ -396,6 +427,9 @@ class Home extends React.Component {
     }
 
     function position() {
+      if (!ctx)
+        return
+
       const r = ctx.getBoundingClientRect()
       const er = elem.getBoundingClientRect()
       ctx.style.left = self.unit(
@@ -446,8 +480,8 @@ class Home extends React.Component {
     let epsilonX= (directParent && elem.offsetLeft) || 0
     self.updateMoving(elem, directParent, {
       mouseMove,
-      x: e.pageX - shiftX - epsilonX,// - document.scrollingElement.scrollLeft,
-      y: e.pageY - shiftY - epsilonY// - document.scrollingElement.scrollTop,
+      x: e.pageX - shiftX - epsilonX,
+      y: e.pageY - shiftY - epsilonY
     })
 
     styleMoving(elem, true)
@@ -670,7 +704,6 @@ class Home extends React.Component {
 
   // get 'children'
   // - edges[id] -> [children]
-
   renderThing(n, e, c) {
     c = c || null
 
@@ -679,7 +712,7 @@ class Home extends React.Component {
     if (e) {
       style.top = e.y
       style.left = e.x
-    } else {
+    } else { // nested
       style.backgroundColor = 'chucknorris'
     }
 
@@ -698,8 +731,7 @@ class Home extends React.Component {
            onDragStart={null}
       >
         <h4>{n.label}</h4>
-        <p>{n.data}</p>
-        <p><small>{new Date().toLocaleString()}</small></p>
+        <div className="data">{n.data}</div>
 
         <div className="mount">
           <div className="dropzone" />
@@ -760,25 +792,10 @@ class Home extends React.Component {
     return col
   }
 
-
-  // TODO allow multiple
-  renderMoving() {
-    if (!this.state.moving)
-      return
-
-    let {thing} = this.renderNest(this.state.spaceThings, this.state.moving.id, this, true)
-    thing.onMouseMove = this.state.moving.mouseMove;
-    thing.onMouseUp = this.state.mouseUp;
-        thing.style = {
-      left: this.state.moving.x + "px",
-      top: this.state.moving.y + 'px',
-    }
-    console.log('render moving:', thing)
-    return thing
-  }
-
   render() {
-
+    // TODO export
+    // TODO allow for multiple moving
+    // TODO shift selection (freehand bounding, box)
     // TODO space preview
     //   thinking about having this as some element that renders a board
     //   flag for BOARD_PREVIEW_RECURSION_DEPTH :: defaulting to 0
@@ -801,11 +818,33 @@ class Home extends React.Component {
     // TODO editor event
     // TODO figure out local storage
     console.log('home, render', this.state.moving)
-// {this.renderMoving()}
     return (
       <div id="home">
 
-        <div id="container" style={{height: window.innerHeight * .8 }}>
+        <div id="container" style={{height: window.innerHeight * .8 }}
+             onDragOver={(e) => {
+               e.preventDefault()
+               e.stopPropagation()
+               console.log(e)
+             }}
+             onDrop={(e) => {
+               e.preventDefault()
+               e.stopPropagation()
+
+               console.log('container drop:', e)
+               console.log(e.dataTransfer.items)
+
+               this.addThing({
+                 x: e.clientX,
+                 y: e.clientY,
+                 data: e.dataTransfer.getData('text')
+               })
+
+               for (const v in e.dataTransfer.items) {
+
+               }
+             }}
+        >
           <h2 id="currentSpaceName">{this.state.currentSpace.label}</h2>
 
           {

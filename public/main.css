@@ -1,6 +1,12 @@
+@import url('https://rsms.me/inter/inter.css');
+html { font-family: 'Inter', sans-serif; }
+@supports (font-variation-settings: normal) {
+  html { font-family: 'Inter var', sans-serif; }
+}
+
 * {
     box-sizing: border-box;
-    font-family: "Fira Code";
+
   }
 
 #container {
@@ -106,7 +112,7 @@ html,  .navigation {
     height: 65px;
     width: 120px;
     position: absolute;
-    outline: solid red 1px;
+
     padding-left: 20px;
     z-index: 9999;
     transition: opacity .2s ease-in;
@@ -147,7 +153,7 @@ html,  .navigation {
     padding: 0 1rem;
   }
 
-  .debug #container, .debug .space, .debug .thing {
+  .debug #container, .debug .space, .debug .thing, .debug .context {
     outline: solid red 1px;
   }
 
