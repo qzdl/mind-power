@@ -65,37 +65,7 @@ let objthings = Data.datamodel;
 
 // let objthings = {
 //   'nodes': [
-//     {
-//       id: 37,
-//       content: 'space',
-//       label: 'nested rendering example'
-//     },
-//     {
-//       id: 38,
-//       content: 'block',
-//       label: 'outermost'
-//     },
-//     {
-//       id: 39,
-//       content: 'block',
-//       label: 'middle (mostly haha)'
-//     },
-//     {
-//       id: 40,
-//       content: 'block',
-//       label: 'innermost'
-//     },
-//     {
-//       id: 41,
-//       label: 'hi chopi'
-//     }
-//   ],
-//   edges: {
-//     37: {38: {}, 39: {}, 40:{}, 41: {}},
-//     38: {39: {}, 40: {}},
-//     39: {40: {}},
-//     40: {41: {}}
-//   }
+//
 // }
 
 let initthings = {
@@ -110,7 +80,7 @@ objthings.nodes.forEach(e => {
 initthings.edges = objthings.edges
 
 initthings.newId = (function() {
-  return Math.max(... this.nodes.keys()) + 1
+  return Math.max(...this.nodes.keys()) + 1
 })
 
 class Home extends React.Component {
@@ -199,8 +169,11 @@ class Home extends React.Component {
       this.setState({view: {}})
     })
 
+    window.addEventListener('contextmenu', this.actions.bind(this))
+
+
     let space = document.getElementById('container')
-    let things = document.getElementsByClassName('thing')
+    //let things = document.getElementsByClassName('thing')
     let btn = document.getElementById('print')
 
     // persist
@@ -273,10 +246,12 @@ class Home extends React.Component {
   }
 
   elementBelow(elem, x, y) {
+    if (elem)
       elem.hidden = true
-      let elemBelow = document.elementFromPoint(x, y)
+    let elemBelow = document.elementFromPoint(x, y)
+    if (elem)
       elem.hidden = false
-      return elemBelow
+    return elemBelow
   }
 
   handleClick(e) {
@@ -310,8 +285,36 @@ class Home extends React.Component {
       return
 
     console.log('enterSpace: ', e, selectedSpace)
+    let r = elem.getBoundingClientRect()
+    console.log('enterSpace proportions',
+                window, r,
+                {wh: document.innerHeight,
+                 th: r.height,
+                 whOth: window.innerHeight / r.height,
+                 thOwh: r.height/window.innerHeight},
+                {ww: window.innerWidth,
+                 tw: r.width,
+                 wwOtw: window.innerWidth / r.width,
+                 twOww: r.width / window.innerWidth
+                })
 
-    onZoomEnd()
+
+    const [x, y] =
+      [window.innerWidth / r.width,
+       window.innerHeight / r.height]
+    let style = document.createElement('style')
+    style.innerHTML = `
+  .zooming {
+    z-index: 9999;
+    transform-origin: 0 0;
+    transition: transform .3s ease-in
+    transform: scaleX(${x}) scaleY(${y})
+  }
+    `
+    document.body.appendChild(style)
+    elem.className += ' zooming'
+    setTimeout(onZoomEnd, 200)
+
 
     function onZoomEnd(e) {
       self.setState({
@@ -335,6 +338,90 @@ class Home extends React.Component {
   actions(e) {
     e.preventDefault() // disable rclick menu
     console.log('ACTION')
+    let self = this;
+
+    if (document.ctx)
+      return
+
+    let elem = belowThing(e)
+    if (!elem)
+      return
+
+    let existing = document.getElementById('context')
+    if (existing && existing.target === elem.id)
+      return
+
+    let ctx = document.createElement('div')
+    ctx.id = 'context'
+    ctx.className = 'context'
+    ctx.target = elem.id
+    const c = document.getElementById('container')
+    c.appendChild(ctx)
+
+    createButton('[+]', null)
+    createButton('" "', null)
+    createButton('[i]', function() {
+      const j = i => JSON.stringify(i, null, 4) + '\n'
+      alert(
+        j({ nodes: self.state.things.nodes.get(parseInt(ctx.target, 10)),
+            edges: self.state.things.edges[ctx.target]}))
+    })
+
+    document.body.addEventListener('mousedown', removeContext)
+    document.body.addEventListener('mouseup', removeContext)
+
+    ctx.className += ' active'
+    document.ctx = ctx
+
+    // position appropriately
+    position()
+
+    function removeContext(ev) {
+      console.log('removeContext')
+
+      // keep ctx if click is on target or ctx
+      let below = belowThing(ev)
+      if (ev.buttons != 4 &&
+          (below && below.id === elem.id) ||
+          belowThing(ev, '.context'))
+        return
+
+      // fade out
+      ctx.className = 'context'
+      setTimeout(() => c.removeChild(ctx), 200)
+
+      document.ctx = null
+      document.body.removeEventListener('mousedown', removeContext)
+      document.body.removeEventListener('mouseup', removeContext)
+    }
+
+    function position() {
+      const r = ctx.getBoundingClientRect()
+      const er = elem.getBoundingClientRect()
+      ctx.style.left = self.unit(
+        er.left + er.width
+      )
+      ctx.style.top = self.unit(
+        Math.max(
+          (e.clientY - r.height / 2),
+          (elem.offsetTop))
+      )
+    }
+
+    function createButton(icon, click) {
+      let btn = document.createElement('pre')
+      btn.innerHTML = icon
+      btn.className = 'button'
+      btn.onclick = click
+      ctx.appendChild(btn)
+    }
+
+    function belowThing(ev, className) {
+      if (!className)
+        className = '.thing'
+      return self.elementBelow(null, ev.clientX, ev.clientY)
+                   .closest(className)
+    }
   }
   // (evt) move
   move(e) {
@@ -351,9 +438,6 @@ class Home extends React.Component {
     let r = elem.getBoundingClientRect()
     let shiftX = e.clientX - r.left;
     let shiftY = e.clientY - r.top;
-
-    // shift to mouse then
-    const shift = (page, client, elem) => page - (client - elem)
 
     let directParent = elem.parentElement
     directParent = (directParent && directParent.closest('.thing')) || null
@@ -381,11 +465,14 @@ class Home extends React.Component {
     // moves the elem at (pageX, pageY) coordinates
     // taking initial shifts into account
     function moveAt(elem, pageX, pageY) {
-
-      elem.style.position = 'absolute';
       elem.style.zIndex = 1000;
       elem.style.left = self.unit(pageX - shiftX - epsilonX)
       elem.style.top = self.unit(pageY - shiftY - epsilonY)
+
+      if (document.ctx) {
+        document.ctx.style.left = self.unit(pageX - shiftX - epsilonX + r.width)
+        document.ctx.style.top = self.unit(pageY - shiftY - epsilonY)
+      }
     }
 
     function styleMoving(el, t) {
@@ -393,11 +480,11 @@ class Home extends React.Component {
 
       if (t) {
         el.style.transform = 'scale(1.01)'
-        elem.style.boxShadow = '.0rem .0rem .1rem .05rem #c7bfa1'
+        elem.style.boxShadow = '.0rem .0rem .1rem .05rem #dcdfe5'
         return
       }
       el.style.transform = ''
-      el.style.boxShadow = '.1rem .1rem .1rem #c7bfa1'
+      el.style.boxShadow = '.1rem .1rem .1rem #dcdfe5'
     }
 
     // TODO bounding box for dragging elements in
@@ -501,10 +588,11 @@ class Home extends React.Component {
     return  (v + "px")
   }
 
+  // get nodes that reference this node
   spaceParent(space) {
-    const t = this.state.things
-    t.edges // obj
-    this.state.currentSpace // id, label, content
+    //const t = this.state.things
+    //t.edges // obj
+    //this.state.currentSpace // id, label, content
   }
 
   updatePosition(elem) {
@@ -528,11 +616,11 @@ class Home extends React.Component {
   }
 
   updateRelationship(elem, parent, x, y) {
+    console.log('updateRelationship: ', elem, parent)
+
     let g = this.state.things;
     const elemBelow = this.elementBelow(elem, x, y)
     const dropTarget = elemBelow.closest('.thing')
-
-    console.log('updating childy', g, elem, dropTarget, parent)
 
     if (parent) {
       if (parent === dropTarget) {
@@ -607,7 +695,6 @@ class Home extends React.Component {
            key={n.id}
            style={style}
            onMouseDown={this.handleClick.bind(this)}
-           contextMenu={this.actions.bind(this)}
            onDragStart={null}
       >
         <h4>{n.label}</h4>
@@ -692,9 +779,18 @@ class Home extends React.Component {
 
   render() {
 
+    // TODO space preview
+    //   thinking about having this as some element that renders a board
+    //   flag for BOARD_PREVIEW_RECURSION_DEPTH :: defaulting to 0
+    //     where 0 means don't load previews in previews
+    //    add .zooming class to preview
+    //    - standard zoom: wait {.2s for animation}, then onZoomEnd() to bind
     // TODO disambiguate gestures (rclick, lclick)
     // TODO touch events
     // TODO rendering of duplicates (indended stuff / quotes)
+    //   this is happening with really nested items
+    // TODO space transition animation
+    // TODO space preview
     // TODO fix scrolling offset
     // TODO remove, replace (transclusion stuff)
     // TODO link up fulltext

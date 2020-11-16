@@ -28,11 +28,15 @@
     background: #eee;
     z-index: 1;
     padding: 10px;
+    box-shadow: .1rem .1rem .1rem #c7bfa1;
 
     transition-timing-function: ease-out;
     transition-property: transform, height, box-shadow;
     transition-duration: .1s;
-    box-shadow: .1rem .1rem .1rem #c7bfa1;
+
+     /* semilattice */
+    border-radius: 8px;
+    box-shadow: .1rem .1rem .1rem #dcdfe5;
 
 
   }
@@ -55,6 +59,7 @@
   .thing .thing, .thing .fauxthing {
     border-left: solid 5px #ddd;
     box-shadow: none !important;
+    border-radius: 0;
     position: relative;
     margin-bottom: 10px
   }
@@ -73,14 +78,13 @@ html,  .navigation {
 
   .navigation {
     position: fixed;
-      background-color: #d0ccbd !important;
-
-      margin-bottom: 2rem;
+    background-color: #d0ccbd !important;
+    margin-bottom: 2rem;
   }
 
   body {
-      background-color: #d0ccbd !important; // #d0ccbd
-
+      background-color:  #dcdfe5 !important; // #d0ccbd
+// #dcdfe5 from semilattice
       padding-bottom: 2rem;
   }
 
@@ -90,6 +94,46 @@ html,  .navigation {
       border: solid 1px #e8e1c8 !important;
       margin: 1rem;
       box-shadow: .1rem .1rem .1rem #c7bfa1;
+  }
+
+
+  .home h2 {
+    position: fixed
+  }
+
+  .context {
+    color: display: flex;
+    height: 65px;
+    width: 120px;
+    position: absolute;
+    outline: solid red 1px;
+    padding-left: 20px;
+    z-index: 9999;
+    transition: opacity .2s ease-in;
+    opacity: 0
+  }
+
+  .context.active {
+    opacity: 1
+  }
+
+  .context .button {
+    border-radius: 50%;
+    float: left;
+    font-size: 1.7rem;
+    margin-right: 20px;
+    background: #eee;
+    width: 65px;
+    height: 65px;
+    box-shadow: .05rem .05rem .8rem .2rem #dcdfe5;
+    transition: transform .1s;
+
+    padding-top: .99rem;
+    font-size: 1.7rem;
+    padding-left: .8rem;
+  }
+  .context .button:hover {
+    transform: scale(1.05)
   }
 
   input {
@@ -109,4 +153,19 @@ html,  .navigation {
 
   .debug #container {
     overflow: scroll
+  }
+
+  /*
+    do this based on size of thing
+    and aspect ratio of view
+
+    so, generate css class that defines, based on xy & size
+    - scaling,
+    - xy coord translation
+
+  */
+  .zooming {
+    z-index: 9999;
+    transform-origin: 0 0;
+    transform: scaleY(3.7848934099003864) scaleX(4.93)
   }
