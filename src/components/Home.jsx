@@ -116,12 +116,32 @@ class Home extends React.Component {
     if (!elem)
       return
 
+    let self = this;
     let data = elem.getElementsByClassName('data')[0]
     let editor = document.createElement('textarea')
-    editor.value = data.text
+    editor.className = 'editor what'
+    editor.value = data.text || ''
     data.innerHTML = null
     data.appendChild(editor)
     editor.focus()
+
+    editor.onkeyup = function(e) {
+
+      if (e.ctrlKey && e.keyCode === 13) { // exit editing binding
+        removeEditor()
+      }
+
+    }
+
+    function removeEditor() {
+      let t = self.state.things
+      let n = t.nodes.get(parseInt(item, 10))
+      n.data = editor.value
+      t.nodes.set(parseInt(item, 10), n)
+      self.setState({editing: undefined})
+      self.updateThings(t)
+
+    }
   }
 
   componentDidUpdate() {
@@ -221,7 +241,7 @@ class Home extends React.Component {
   }
 
   addThing(props) {
-    const {x, y, data, content, parent} = props
+    const {x, y, data, content, parent, editing} = props
     let t = this.state.things
     let s = this.state.currentSpace
     let n = {
@@ -231,15 +251,24 @@ class Home extends React.Component {
 
     }
     t.edges[s.id][n.id] = {}
-    if (parent)
+    if (parent) {
+      let pe = t.edges[parent]
+      if (!pe)
+        t.edges[parent] = {}
       t.edges[parent][n.id] = {}
+    }
+
     let e = t.edges[s.id][n.id]
     e = {x,y}
     t.nodes.set(n.id, n)
     t.edges[s.id][n.id] = e
+
+    const edit = editing ? {editing: n.id} : {}
+
     this.setState({
       things: t,
-      spaceThings: this.spaceGraph(t, s)
+      spaceThings: this.spaceGraph(t, s),
+      ...edit
     })
   }
 
@@ -386,7 +415,8 @@ class Home extends React.Component {
     c.appendChild(ctx)
 
     createButton('[+]', function() {
-      self.addThing({parent: ctx.target})
+      self.addThing({parent: ctx.target, editing: true})
+      removeContext()
     })
     createButton('" "', null)
     createButton('[i]', function() {
@@ -410,12 +440,15 @@ class Home extends React.Component {
     function removeContext(ev) {
       console.log('removeContext')
 
-      // keep ctx if click is on target or ctx
-      let below = belowThing(ev)
-      if (ev.buttons != 4 &&
-          ((below && below.id === elem.id) ||
-           belowThing(ev, '.context')))
+      // keep ctx if !!event, click is on target, or ctx
+      if (ev) {
+        let below = belowThing(ev)
+        if (ev && ev.buttons != 4 && (
+          (below && below.id === elem.id) ||
+          belowThing(ev, '.context')))
         return
+      }
+
 
       // fade out
       ctx.className = 'context'

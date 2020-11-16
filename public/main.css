@@ -21,8 +21,15 @@ html { font-family: 'Inter', sans-serif; }
     position: absolute;
     top: 1rem
   }
-  #editor {
-    
+  .editor {
+    background: inherit;
+    border: none;
+    resize: none;
+    font-family: inherit;
+    display: block;
+    padding: 0;
+    width: 100%;
+
   }
 
   .thing {
