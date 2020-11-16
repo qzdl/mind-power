@@ -469,7 +469,7 @@ class Home extends React.Component {
       elem.style.left = self.unit(pageX - shiftX - epsilonX)
       elem.style.top = self.unit(pageY - shiftY - epsilonY)
 
-      if (document.ctx) {
+      if (document.ctx && document.ctx.target === elem.id) {
         document.ctx.style.left = self.unit(pageX - shiftX - epsilonX + r.width)
         document.ctx.style.top = self.unit(pageY - shiftY - epsilonY)
       }
