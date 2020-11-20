@@ -60,13 +60,24 @@
 */
 
 import React from "react";
-import Data from "./data";
-let objthings = Data.datamodel;
+import elasticlunr from "elasticlunr"
+import { ReactTinyLink } from 'react-tiny-link'
+import Index from './Index'
+import Stack from './Stack'
+import Data from "./data"
+let objthings = Data.datamodel
 
 // let objthings = {
 //   'nodes': [
 //
 // }
+
+let ftindex =  elasticlunr(function() {
+  this.addField('label');
+  this.addField('data');
+  this.setRef('id');
+  this.saveDocuments = true
+})
 
 let initthings = {
   nodes: new Map(),
@@ -74,7 +85,8 @@ let initthings = {
 }
 
 objthings.nodes.forEach(e => {
-   initthings.nodes.set(e.id, e)
+  initthings.nodes.set(e.id, e)
+  ftindex.addDoc(e)
 })
 
 initthings.edges = objthings.edges
@@ -86,6 +98,7 @@ initthings.newId = (function() {
 class Home extends React.Component {
 
   state = {
+    ftindex: ftindex,
     stack: {},
     shape: {},
     view:  {},
@@ -125,22 +138,31 @@ class Home extends React.Component {
     data.appendChild(editor)
     editor.focus()
 
+    let s = document.createElement('style')
+    s.id = 'editor'
+    document.body.append(s)
+    function makeStyle(h) {
+      s.innerHTML = `.editor { height: ${h} !important; }`
+    }
+
     editor.onkeyup = function(e) {
 
       if (e.ctrlKey && e.keyCode === 13) { // exit editing binding
         removeEditor()
       }
 
+      makeStyle('auto')
+      makeStyle(self.unit(this.scrollHeight + 20))
     }
 
     function removeEditor() {
+      document.body.removeChild(s)
       let t = self.state.things
       let n = t.nodes.get(parseInt(item, 10))
       n.data = editor.value
       t.nodes.set(parseInt(item, 10), n)
-      self.setState({editing: undefined})
-      self.updateThings(t)
-
+      self.updateThings(t, {editing: undefined})
+      self.updateIndex(n)
     }
   }
 
@@ -240,45 +262,13 @@ class Home extends React.Component {
     space.ondrag = this.navigate
   }
 
-  addThing(props) {
-    const {x, y, data, content, parent, editing} = props
-    let t = this.state.things
-    let s = this.state.currentSpace
-    let n = {
-      id: this.state.things.newId(),
-      content: content || "block",
-      data: data || " ",
-
-    }
-    t.edges[s.id][n.id] = {}
-    if (parent) {
-      let pe = t.edges[parent]
-      if (!pe)
-        t.edges[parent] = {}
-      t.edges[parent][n.id] = {}
-    }
-
-    let e = t.edges[s.id][n.id]
-    e = {x,y}
-    t.nodes.set(n.id, n)
-    t.edges[s.id][n.id] = e
-
-    const edit = editing ? {editing: n.id} : {}
-
-    this.setState({
-      things: t,
-      spaceThings: this.spaceGraph(t, s),
-      ...edit
-    })
-  }
-
   create(point) {
     console.log('create: ', point, point.target.id)
 
     if (point.target.id !== 'container')
       return
 
-    this.addThing({x: point.layerX, y: point.layerY})
+    this.addThing({x: point.layerX, y: point.layerY, editing: true})
   }
 
   navigate(point) {
@@ -310,7 +300,9 @@ class Home extends React.Component {
   }
 
   handleClick(e) {
+    console.log('click', e)
     e.preventDefault()
+
     switch (e.buttons) {
     case 1:   // left click
       this.move(e)
@@ -331,6 +323,9 @@ class Home extends React.Component {
   enterSpace(e, self) {
 
     console.log('es: ', this, self, self.setState, self.spaceGraph, self.state.currentSpace)
+    if (e.target.id === 'container') {
+      console.log('here go to last space', this.state.lastSpace)
+    }
     let elem =  e.target.closest('.thing')
     if (!elem)
       return
@@ -343,7 +338,7 @@ class Home extends React.Component {
     let r = elem.getBoundingClientRect()
     console.log('enterSpace proportions',
                 window, r,
-                {wh: document.innerHeight,
+                {wh: document.inner0Height,
                  th: r.height,
                  whOth: window.innerHeight / r.height,
                  thOwh: r.height/window.innerHeight},
@@ -374,11 +369,11 @@ class Home extends React.Component {
 
     function onZoomEnd(e) {
       self.setState({
+        lastSpace: self.state.currentSpace,
         spaceThings: self.spaceGraph(self.state.things, selectedSpace),
         currentSpace: selectedSpace
       })
     }
-
 
     /*
 
@@ -388,6 +383,10 @@ class Home extends React.Component {
       rebind spaceThings to selectedSpace
 */
 
+  }
+
+  container() {
+    return document.getElementById('container')
   }
 
   // (evt) actions
@@ -426,12 +425,15 @@ class Home extends React.Component {
             edges: self.state.things.edges[ctx.target]}))
     })
 
+
+    // bind transient context events
     document.body.addEventListener('mousedown', removeContext)
     document.body.addEventListener('mouseup', removeContext)
 
     ctx.position = position
     document.ctx = ctx
 
+    let container = this.container()
     // position appropriately
     position()
 
@@ -443,7 +445,7 @@ class Home extends React.Component {
       // keep ctx if !!event, click is on target, or ctx
       if (ev) {
         let below = belowThing(ev)
-        if (ev && ev.buttons != 4 && (
+        if (ev && ev.buttons !== 4 && (
           (below && below.id === elem.id) ||
           belowThing(ev, '.context')))
         return
@@ -470,7 +472,7 @@ class Home extends React.Component {
       )
       ctx.style.top = self.unit(
         Math.max(
-          (e.clientY - r.height / 2),
+          (e.clientY - r.height / 2 - container.offsetTop),
           (elem.offsetTop))
       )
     }
@@ -509,7 +511,9 @@ class Home extends React.Component {
     let directParent = elem.parentElement
     directParent = (directParent && directParent.closest('.thing')) || null
 
-    let epsilonY = (directParent && elem.offsetTop) || 0
+    let c = document.getElementById('container')
+
+    let epsilonY = ((directParent && elem.offsetTop) || 0) + c.offsetTop
     let epsilonX= (directParent && elem.offsetLeft) || 0
     self.updateMoving(elem, directParent, {
       mouseMove,
@@ -528,6 +532,7 @@ class Home extends React.Component {
 
     let dropzone = null;
     let currentDroppable = null
+
 
     // moves the elem at (pageX, pageY) coordinates
     // taking initial shifts into account
@@ -632,8 +637,8 @@ class Home extends React.Component {
       styleMoving(elem, false)
       elem.style.zIndex = ''
       // fix offset to container
-      //let s = elem.style.top // "327px", "1028px"
-      //elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
+      // let s = elem.style.top // "327px", "1028px"
+      // elem.style.top = parseInt(s.substring(0, s.length - 2), 10) - c.offsetTop + "px"
 
       // update state
       self.updateRelationship(elem, directParent, e.clientX, e.clientY)
@@ -642,24 +647,60 @@ class Home extends React.Component {
     }
   }
 
-  movePermit(e) {
-    // verify elem is droppable
-    e.preventDefault() // remove link handling
-    console.log('movePermit: ', e)
-    e.style.top = this.unit(10)
-    e.style.left = this.unit(10)
-
-  }
-
   unit(v) {
     return  (v + "px")
   }
 
   // get nodes that reference this node
   spaceParent(space) {
+
     //const t = this.state.things
     //t.edges // obj
     //this.state.currentSpace // id, label, content
+  }
+
+  addThing(props) {
+    const {x, y, data, content, parent, editing} = props
+    let t = this.state.things
+    let s = this.state.currentSpace
+    let n = {
+      id: this.state.things.newId(),
+      content: content || "block",
+      data: data || " ",
+    }
+
+    // bind NODE to SPACE
+    t.edges[s.id][n.id] = {}
+
+    // bind NODE to ?PARENT
+    if (parent) {
+      let pe = t.edges[parent]
+      if (!pe)
+        t.edges[parent] = {}
+      t.edges[parent][n.id] = {}
+    }
+
+    // register NODE
+    t.nodes.set(n.id, n)
+
+    // bind SPACE:NODE properties
+    t.edges[s.id][n.id] = {x, y}
+
+    // prepare additional state updates
+    const edit = editing ? {editing: n.id} : {}
+
+    let i = this.state.ftindex;
+    i.addDoc(n)
+    this.setState({
+      things: t,
+      spaceThings: this.spaceGraph(t, s),
+      ftindex: i,
+      ...edit
+    })
+  }
+
+  updateIndex(n) {
+    this.state.ftindex.updateDoc(n)
   }
 
   updatePosition(elem) {
@@ -675,10 +716,11 @@ class Home extends React.Component {
     this.updateThings(t)
   }
 
-  updateThings(things) {
+  updateThings(things, other) {
     this.setState({
       things,
-      spaceThings: this.spaceGraph(things, this.state.currentSpace)
+      spaceThings: this.spaceGraph(things, this.state.currentSpace),
+      ...other
     })
   }
 
@@ -735,18 +777,14 @@ class Home extends React.Component {
     this.setState(state)
   }
 
-  // get 'children'
-  // - edges[id] -> [children]
   renderThing(n, e, c) {
     c = c || null
 
-    let style = {}
-
-    if (e) {
-      style.top = e.y
-      style.left = e.x
-    } else { // nested
-      style.backgroundColor = 'chucknorris'
+    let style = e ? {
+      top: e.y,
+      left: e.x
+    } : { // then item being rendered is 'nested'
+      backgroundColor: 'chucknorris'
     }
 
     if (this.state.moving
@@ -764,7 +802,26 @@ class Home extends React.Component {
            onDragStart={null}
       >
         <h4>{n.label}</h4>
-        <div className="data">{n.data}</div>
+
+        <div className="parsed">{(() => {
+          <div className="data">{n.data}</div>
+          //  <pre>{JSON.stringify(p,null,4)}</pre>
+          //  <p><small>{n.content}:{n.id}</small></p>
+
+          let p = this.process(n.data)
+          return !p ? null : <div>
+                               <div dangerouslySetInnerHTML={{ __html: p.data }}></div>
+                               {p.links.map(e => {
+                                 return <ReactTinyLink
+                                          cardSize="small"
+                                          showGraphic={true}
+                                          maxLine={2}
+                                          minLine={1}
+                                          url={e.link} />
+                               })}
+                             </div>
+        })()}</div>
+
 
         <div className="mount">
           <div className="dropzone" />
@@ -775,8 +832,6 @@ class Home extends React.Component {
   }
 
   renderNest(items, node, self, top) {
-    // expand children
-
     if (!node || !items || !self)
       return
 
@@ -810,6 +865,53 @@ class Home extends React.Component {
     }
   }
 
+  imagep(link) {
+    if (!link)
+      return false
+    const i = link.match(/\.(png|jpg|jpeg|gif)$/g)
+    return i && i.length > 0 
+  }
+  
+  images(links) {
+    if (this.seqnil(links))
+      return links  
+    links.filter(l => this.imagep(l))
+  }           
+
+  seqnil(seq) {
+    return !seq || (seq && seq.length === 0)
+  }
+
+  links(text) {
+    let li =  text.match(/(http|ftp|https|file):[/]+([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?/g)
+    return li ? li.map(l => {return {
+      link: l,
+      image: this.imagep(l),
+    }}) : []
+  }
+  
+  // -> data -> text
+  process(text) {
+    if (!text)
+      return null
+
+    let self = this;
+    let props = {
+      data: text,
+    }
+
+    props.links = this.links(text)
+
+    let t = props.links.forEach(l => {
+      let c =  `<a href=${l.link} target="_blank">${l.link}</a>`
+      if (l.image)
+        c =  `<img src=${l.link}></img>`
+
+      props.data = props.data.replace(l.link, c)
+    })
+    return props;
+  }
+    
   renderItems(items) {
     if (!items) return null;
     let col = []
@@ -826,39 +928,54 @@ class Home extends React.Component {
   }
 
   render() {
-    // TODO export
-    // TODO allow for multiple moving
-    // TODO shift selection (freehand bounding, box)
-    // TODO space preview
+    // TODO export :wayoff:
+    // TODO allow for multiple moving :refactor:evt:
+    // TODO shift selection (freehand bounding, box) :evt:
+    // TODO space preview :view:render:refactor:
     //   thinking about having this as some element that renders a board
     //   flag for BOARD_PREVIEW_RECURSION_DEPTH :: defaulting to 0
     //     where 0 means don't load previews in previews
     //    add .zooming class to preview
     //    - standard zoom: wait {.2s for animation}, then onZoomEnd() to bind
-    // TODO disambiguate gestures (rclick, lclick)
-    // TODO touch events
-    // TODO rendering of duplicates (indended stuff / quotes)
+    // DONE disambiguate gestures (rclick, lclick) :evt:
+    // TODO disambiguate gestures across container <-> thing :evt:
+    // TODO drag selection :evt:
+    // TODO touch events :evt:
+    // TODO rendering of duplicates (indended stuff / quotes) :render:datamodel:
     //   this is happening with really nested items
-    // TODO space transition animation
-    // TODO space preview
-    // TODO fix scrolling offset
-    // TODO remove, replace (transclusion stuff)
-    // TODO link up fulltext
-    // TODO figure out splitting into components
-    // TODO figure out react state
-    // TODO think about space local modifications
-    // TODO ordering
-    // TODO editor event
-    // TODO figure out local storage
+    //   i think the mechanic for quotes will fix this; one occurance of a thing per board, quoting of [collections of things, parts of things]
+
+    // TODO space transition animation :view:
+    // TODO space preview :view:
+    // DONE fix scrolling offset :view:
+    // TODO remove, replace (transclusion stuff) :datamodel:
+    // DONE link up fulltext :integration:
+    // TODO look at some data caching https://github.com/weixsong/elasticlunr.js#4-update-a-document-in-index :datamodel:
+    // TODO fulltext results container :render:view:integration:
+    // TODO figure out splitting into components :refactor:
+    // TODO figure out react state :refactor:
+    // TODO think about space local modifications :datamodel:
+    // TODO ordering :datamodel:rendering:
+    // DONE editor event :event:
+    // TODO figure out local storage :refactor:datamodel:integration:
     console.log('home, render', this.state.moving)
+
     return (
       <div id="home">
 
+        <div className="bar">
+          <Index things={this.state.things}
+                 ftindex={this.state.ftindex} />
+          <Stack things={this.state.stack}
+                 current={this.state.currentSpace}
+                 last={this.state.lastSpace} />
+
+        </div>
         <div id="container" style={{height: window.innerHeight * .8 }}
              onDragOver={(e) => {
                e.preventDefault()
                e.stopPropagation()
-               console.log(e)
+//               console.log(e)
              }}
              onDrop={(e) => {
                e.preventDefault()
@@ -885,11 +1002,7 @@ class Home extends React.Component {
           }
         </div>
         <button id="print">print things</button>
-        <textarea id='currentspace'
-                  readOnly={true}
-                  value={JSON.stringify(this.state.spaceThings, null, 4)} style={{height: "500px", width: '500px'}}
 
-        />
       </div>
 
     );

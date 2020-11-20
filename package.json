@@ -2,9 +2,15 @@
   "main": "./src/index.js",
   "dependencies": {
     "@antv/g6": "latest",
-    "react-router-dom": "^5.2.0"
+    "grabity": "^1.0.5",
+    "linkifyjs": "^2.1.9",
+    "react-router-dom": "^5.2.0",
+    "react-tiny-link": "^3.6.0"
   },
-  "name": "jjxci",
+  "browser": {
+    "child_process": false
+  },
+  "name": "mind-power",
   "description": null,
   "version": "0.0.829",
   "devDependencies": {

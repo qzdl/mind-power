@@ -36,7 +36,6 @@ function blocks_text(t, r) {
   return t.split(r);
 }
 
-// FIXME: this is dying for some reason (related to recursion depth errors? probably)
 function interesting(t) {
   return t.match(re_interesting);
 }
@@ -129,10 +128,6 @@ function doc_graph(t, name, g=null) {
 
   return g;
 }
-
-// TODO implement http://elasticlunr.com/ over 'original' field of nodeshttp://elasticlunr.com
-// TODO expose searching interface
-// TODO look at some data caching https://github.com/weixsong/elasticlunr.js#4-update-a-document-in-index
 
 export default {
   blocks_text,

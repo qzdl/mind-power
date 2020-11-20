@@ -1,45 +1,24 @@
 import React, { Component } from "react";
-import elasticlunr from "elasticlunr";
-
-let data =  [
-      {
-        id: "node1",
-        label: "Circle1\ndirkle",
-        original: "yep well that's something statey mc stateface and chopi is my baby",
-        meta: "updated 3 minutes ago"
-      },
-      {
-        id: "node2",
-        label: "Circle2",
-        original: "some description text of the card circle 2 from data bindings how nice and cool",
-        meta: ""
-      }
-    ]
-
-// TODO fuzzy search
-let  ftindex =  elasticlunr(function() {
-  this.addField('label');
-  this.addField('original');
-  this.setRef('id');
-  this.saveDocuments = true
-})
-
 
 
 class Index extends Component {
   state = {
     query: '',
-    data: data,
-    results: data,
-    ftindex: ftindex
+    results: [],
+    placeholders: [
+      "search here...",
+      "ho hum diddly dum...",
+      "LOOK AT ME SEARCH SOMETHING..."
+    ],
+    ftindex: this.props.ftindex
   }
 
   getInfo = () => {
     let res = this.state.ftindex.search(this.state.query)
-    console.log(res)
+    console.log('search', this.state.query, res, this.state.ftindex)
     
     this.setState({
-      results: this.state.ftindex.search(this.state.query).map(({ ref, score }) => {
+      results: res.map(({ ref, score }) => {
         // Get doc by ref
         const doc = this.state.ftindex.documentStore.getDoc(ref);
         return {
@@ -65,40 +44,44 @@ class Index extends Component {
 
 
   results = () => {
-    let binder = d => d.map(item => {
+    let binder = (d) => d.map(item => {
       item = item.doc || item
       return (
-        
-          <div className="card">
+        <div className="thing" key={item.id}>
             <div className="card-body">
               <h5 className="card-title">{item.label}</h5>
-              <p className="card-text">{item.original}</p>
-              <p className="card-text"><small className="text-muted">{item.meta}</small></p>
+              <p className="card-text">{item.data}</p>
+              <p className="card-text">
+                <small className="text-muted">
+                  {item.content}:{item.id}
+                </small></p>
             </div>
           </div>
         )})
 
     if (this.state.results && this.state.results.length > 0)
-      return <div className="card-group">{binder(this.state.results)}</div>
-    else return <div className="card-group"><h4>NO RESULTS</h4> {binder(this.state.data)}</div>
+      return <div className="results">
+               {binder(this.state.results)}
+             </div>
+    else
+      return <div className="results"></div>
   }
-  
+
+  placeholder() {
+    return `[ ${this.state.placeholders[Math.floor(Math.random() * this.state.placeholders.length)]} ]`
+  }
   render() {
     return (
       <div className="index">
-        <div className="container">
-        
-            <div className="col-lg-12">
-              <input
-                placeholder="[search here...]"
-                ref={input => this.search = input}
-                onChange={this.handleInputChange} />
-              
-        
-                {this.results()}
-           
-           
-          </div>
+        <div className="search">
+          <i className="fa fa-search"></i>
+          <input
+            placeholder={this.placeholder()}
+            ref={input => this.search = input}
+            onChange={this.handleInputChange} />
+        </div>
+        <div className="results">
+          {this.results()}
         </div>
       </div>
     );
