@@ -31,6 +31,12 @@ html { font-family: 'Inter', sans-serif; }
 
   /* BOARD */
 
+  .zooming {
+    z-index: 9999;
+    transform-origin: 0 0;
+    transition: translate .5s, transform .5s;
+  }
+
   #container {
     position: relative;
     z-index: 0;
@@ -63,14 +69,30 @@ html { font-family: 'Inter', sans-serif; }
   }
 
   .index .results {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: absolute;
+    right: 0;
+    width: 60%;
+    padding: 1rem 0;
+    transition: height .2s ease-out;
+  }
 
+  .index .result {
+    display: flex;
+    flex-direction: column;
+    flex-basis: 50%;
+    position: relative;
+    padding: 0 1rem 1rem 0;
+    color: #565656 !important;
   }
 
   .index .thing {
-    display: flex;
     position: relative;
-    margin: 1rem 1rem 0 0;
-  }
+    max-width: unset;
+    height: 100%;
+   }
 
   .search {
     position: relative;
@@ -128,6 +150,9 @@ html { font-family: 'Inter', sans-serif; }
 
   .thing h4 {
     margin: none;
+  }
+  .editing {
+    border: dashed 5px #ddd;
   }
   .editor {
     top: 0;

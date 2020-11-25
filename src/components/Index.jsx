@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-
+import Thing from './Thing'
 
 class Index extends Component {
   state = {
@@ -35,29 +35,20 @@ class Index extends Component {
       query: this.search.value
     }, () => {
       if (this.state.query && this.state.query.length > 1) {
-        
-          this.getInfo()
-        
-      } 
-    
-    })}
-
+        this.getInfo()
+      }
+    })
+  }
 
   results = () => {
     let binder = (d) => d.map(item => {
       item = item.doc || item
       return (
-        <div className="thing" key={item.id}>
-            <div className="card-body">
-              <h5 className="card-title">{item.label}</h5>
-              <p className="card-text">{item.data}</p>
-              <p className="card-text">
-                <small className="text-muted">
-                  {item.content}:{item.id}
-                </small></p>
-            </div>
-          </div>
-        )})
+        <div className="result" key={item.id}>
+          <Thing node={item} things={this.props.things}/>
+        </div>
+      )
+    })
 
     if (this.state.results && this.state.results.length > 0)
       return <div className="results">
@@ -80,9 +71,9 @@ class Index extends Component {
             ref={input => this.search = input}
             onChange={this.handleInputChange} />
         </div>
-        <div className="results">
+
           {this.results()}
-        </div>
+
       </div>
     );
   }

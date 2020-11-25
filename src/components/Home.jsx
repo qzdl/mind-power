@@ -61,10 +61,12 @@
 
 import React from "react";
 import elasticlunr from "elasticlunr"
-import { ReactTinyLink } from 'react-tiny-link'
+import Settings from './settings'
 import Index from './Index'
 import Stack from './Stack'
+import Thing from './Thing'
 import Data from "./data"
+
 let objthings = Data.datamodel
 
 // let objthings = {
@@ -112,64 +114,10 @@ class Home extends React.Component {
     console.log('ye')
   }
 
-  getInfo() {
-    const s = this.spaceGraph(this.state.things, this.state.currentSpace)
-    console.log('getInfo: ', s)
-    this.setState({
-      spaceThings: this.spaceGraph(this.state.things, this.state.currentSpace)
-    })
-    return s;
-  }
-
-  // (evt) edit
-  edit(item) {
-    console.log('edit: ', item)
-    let elem = document.getElementById(item)
-
-    if (!elem)
-      return
-
-    let self = this;
-    let data = elem.getElementsByClassName('data')[0]
-    let editor = document.createElement('textarea')
-    editor.className = 'editor what'
-    editor.value = data.text || ''
-    data.innerHTML = null
-    data.appendChild(editor)
-    editor.focus()
-
-    let s = document.createElement('style')
-    s.id = 'editor'
-    document.body.append(s)
-    function makeStyle(h) {
-      s.innerHTML = `.editor { height: ${h} !important; }`
-    }
-
-    editor.onkeyup = function(e) {
-
-      if (e.ctrlKey && e.keyCode === 13) { // exit editing binding
-        removeEditor()
-      }
-
-      makeStyle('auto')
-      makeStyle(self.unit(this.scrollHeight + 20))
-    }
-
-    function removeEditor() {
-      document.body.removeChild(s)
-      let t = self.state.things
-      let n = t.nodes.get(parseInt(item, 10))
-      n.data = editor.value
-      t.nodes.set(parseInt(item, 10), n)
-      self.updateThings(t, {editing: undefined})
-      self.updateIndex(n)
-    }
-  }
-
   componentDidUpdate() {
     //if (document.ctx)  document.ctx.position()
     if (this.state.editing)
-      this.edit(this.state.editing)
+      this.edit(null, this.state.editing)
   }
 
   componentDidMount() {
@@ -180,6 +128,15 @@ class Home extends React.Component {
     console.log('mount: ', this.state.things)
 
     this.mountSpace()
+  }
+
+  getInfo() {
+    const s = this.spaceGraph(this.state.things, this.state.currentSpace)
+    console.log('getInfo: ', s)
+    this.setState({
+      spaceThings: this.spaceGraph(this.state.things, this.state.currentSpace)
+    })
+    return s;
   }
 
   spaceGraph(graph, space) {
@@ -229,37 +186,183 @@ class Home extends React.Component {
     window.addEventListener('resize', () => {
       let c = document.getElementById('container')
       c.style.height =  (window.innerHeight * .8)+ "px";
-      console.log('resize: ', c.style.height)
+      Settings.debug('resize: ', c.style.height)
       this.setState({view: {}})
     })
 
-    window.addEventListener('contextmenu', this.actions.bind(this))
-
-
-    let space = document.getElementById('container')
-    //let things = document.getElementsByClassName('thing')
-    let btn = document.getElementById('print')
-
     // persist
+    let btn = document.getElementById('print')
     btn.onclick = () => {
       let fucking_javascript = []
       for (const e of this.state.things.nodes.values()) {
         fucking_javascript.push(e)
       }
-      console.log(JSON.stringify({
-        nodes: fucking_javascript,
-        edges: this.state.things.edges}, null ,2))
+      Settings.debug(
+        'mountSpace persist: ',
+        JSON.stringify({
+          nodes: fucking_javascript,
+          edges: this.state.things.edges}, null ,2))
     }
 
+
+
+    let space = document.getElementById('container')
     // mapping view to position in space (TODO scrollable bg)
     // better to use bounding box function for [computed]
     // const [w,h] = [space.style.width, space.style.height]
 
-    // (evt) create
-    space.onclick = this.create.bind(this)
+    // evts
+    space.onmousedown = this.handleClick.bind(this)
 
     // (evt) navigate
     space.ondrag = this.navigate
+
+    window.addEventListener('contextmenu', this.actions.bind(this))
+  }
+
+  handleClick(e) {
+    console.log('click', e)
+    e.preventDefault()
+
+    let isThing = e.target.closest('.thing')
+    let isContainer = e.target.id === 'container'
+
+    let target = ''
+    if (isThing)
+      target = 'thing'
+    else if (isContainer)
+      target = 'space'
+
+    // so feasibly, you could map your own functions to this & change on the fly
+    const events = {
+      1: { // left click
+        thing: this.move,
+        c_thing: this.edit,
+        space: this.create
+      },
+      2: { // right click
+        thing: this.actions,
+      },
+      4: { // scroll
+        thing: this.enterSpace,
+        c_space: this.home,
+        space: this.exitSpace
+      }
+    }
+
+    let dispatch = (events, button, target, ev) => {
+      let eventgroup = events[button]
+      if (!eventgroup)
+        return Settings.debug('handleClick: unhandled button ', [button, ev, events])
+
+      let act = eventgroup[target]
+      if (ev.ctrlKey) {
+        let c_act = eventgroup["c_"+target]
+        if (c_act)
+          act = c_act
+      }
+
+      if (!act)
+        return Settings.debug('handleClick: target unhandled', [button, ev, events])
+
+      // exec
+      act = act.bind(this)
+      act(ev)
+      return act
+    }
+
+    Settings.debug('handleClick dispatch:', dispatch(events, e.buttons, target, e))
+
+  }
+
+  home(e) {
+    console.log('go home')
+  }
+
+  // (evt) edit
+  edit(e, item) {
+    if (!e && !item)
+      return Settings.debug('edit: no way to find the target')
+
+    let elem;
+    if (item)
+      elem = document.getElementById(item)
+    else if (e) {
+      elem = e.target.closest('.thing')
+      item = elem.id
+    }
+
+    if (!elem)
+      return Settings.debug('edit: target not found', [e, item])
+
+    let data = elem.getElementsByClassName('data')[0]
+    let editor = document.createElement('textarea')
+
+    elem.className += ' editing'
+    editor.className = 'editor'
+
+    let value = this.state.things.nodes.get(parseInt(item, 10))
+    if (value)
+      editor.value = value.data || ''
+
+    data.innerHTML = null
+    data.appendChild(editor)
+    editor.focus()
+
+    let s = document.createElement('style')
+    s.id = 'editor'
+    document.body.append(s)
+    function makeStyle(h) {
+      s.innerHTML = `.editor { height: ${h} !important; }`
+    }
+
+    let removeEditor = (ev) => {
+      if (!elem || !editor)
+        return Settings.debug('edit: cannot remove editor; elem does not exist', [e, item])
+
+      if (ev) {
+        let skip = (el) => el && (el === editor || el === elem)
+        let eledth = (el) => el && (
+          skip(el) || skip(el.closest('.editor')) || skip(el.closest('.thing'))
+        )
+        // if you click on the editor, or the containing element
+        if (eledth(ev.target) || eledth(document.elementFromPoint(ev.clientX, ev.clientY)))
+          return
+      }
+
+
+      // update node content
+      let t = this.state.things
+      let n = t.nodes.get(parseInt(item, 10))
+      n.data = editor.value
+      t.nodes.set(parseInt(item, 10), n)
+      this.updateThings(t, {editing: undefined})
+      this.updateIndex(n)
+
+      // remove editor && events
+      elem.className = elem.className.replace('editing', '')
+      
+      try { // i don't have the mental fortitude to fix this stale render issu
+        data.removeChild(editor)
+        document.body.removeChild(s)
+
+      } catch(e){}
+
+      document.body.removeEventListener('mousedown', removeEditor)
+      document.body.removeEventListener('mouseup', removeEditor)
+    }
+
+    document.body.addEventListener('mouseup', removeEditor.bind(this))
+    document.body.addEventListener('mousedown', removeEditor.bind(this))
+
+    editor.onkeyup = function(e) {
+      if (e.ctrlKey && e.keyCode === 13) { // exit editing binding
+        removeEditor()
+      }
+
+      makeStyle('auto')
+      makeStyle(Settings.unit(this.scrollHeight + 20))
+    }
   }
 
   create(point) {
@@ -268,7 +371,7 @@ class Home extends React.Component {
     if (point.target.id !== 'container')
       return
 
-    this.addThing({x: point.layerX, y: point.layerY, editing: true})
+    this.addThing({x: point.layerX - 50, y: point.layerY - 50, editing: true})
   }
 
   navigate(point) {
@@ -299,81 +402,7 @@ class Home extends React.Component {
     return elemBelow
   }
 
-  handleClick(e) {
-    console.log('click', e)
-    e.preventDefault()
-
-    switch (e.buttons) {
-    case 1:   // left click
-      this.move(e)
-      break;
-    case 2:  // right click
-      this.actions(e)
-      break;
-    case 4: // scroll click
-      this.enterSpace(e, this)
-      break;
-    default: // unhandled
-      console.log('handleClick: unhandled button ', e.buttons, e)
-      break;
-    }
-  }
-
-  // (evt) enterSpace
-  enterSpace(e, self) {
-
-    console.log('es: ', this, self, self.setState, self.spaceGraph, self.state.currentSpace)
-    if (e.target.id === 'container') {
-      console.log('here go to last space', this.state.lastSpace)
-    }
-    let elem =  e.target.closest('.thing')
-    if (!elem)
-      return
-
-    let selectedSpace = self.state.things.nodes.get(parseInt(elem.id, 10))
-    if (!selectedSpace || (selectedSpace && selectedSpace.content !== 'space'))
-      return
-
-    console.log('enterSpace: ', e, selectedSpace)
-    let r = elem.getBoundingClientRect()
-    console.log('enterSpace proportions',
-                window, r,
-                {wh: document.inner0Height,
-                 th: r.height,
-                 whOth: window.innerHeight / r.height,
-                 thOwh: r.height/window.innerHeight},
-                {ww: window.innerWidth,
-                 tw: r.width,
-                 wwOtw: window.innerWidth / r.width,
-                 twOww: r.width / window.innerWidth
-                })
-
-
-    const [x, y] =
-      [window.innerWidth / r.width,
-       window.innerHeight / r.height]
-    let style = document.createElement('style')
-    style.innerHTML = `
-  .zooming {
-    z-index: 9999;
-    transform-origin: 0 0;
-    transition: translate .5s, transform .5s;
-    transform: scaleX(${x}) scaleY(${y});
-    translate: -${elem.style.left} -${elem.style.top};
-  }
-    `
-    document.body.appendChild(style)
-    elem.className += ' zooming'
-    setTimeout(onZoomEnd, 500)
-
-
-    function onZoomEnd(e) {
-      self.setState({
-        lastSpace: self.state.currentSpace,
-        spaceThings: self.spaceGraph(self.state.things, selectedSpace),
-        currentSpace: selectedSpace
-      })
-    }
+  changeSpace(props) {
 
     /*
 
@@ -382,7 +411,80 @@ class Home extends React.Component {
     onzoomend:
       rebind spaceThings to selectedSpace
 */
+    const {from, to, target, zoomin} = props
 
+
+    let style = document.createElement('style')
+    style.id = 'zooms'
+    if (zoomin && target) {
+      const r = target.getBoundingClientRect()
+      const [x, y, left, top] =
+        [window.innerWidth / r.width,
+         window.innerHeight / r.height,
+         target.style.left, target.style.right]
+
+      style.innerHTML = `.zooming {
+        transform: scaleX(${x}) scaleY(${y});
+        translate: -${target.style.left} -${target.style.top};
+      }`
+    }
+
+    else
+      style.innerHTML = `.zooming {
+        transform: scale(-.8);
+      }`
+
+    document.body.appendChild(style)
+    target.className += ' zooming'
+    let id = target.id;
+
+    let onZoomEnd = (e) => {
+      this.setState({
+        lastSpace: from,
+        spaceThings: this.spaceGraph(this.state.things, to),
+        currentSpace: to
+      })
+
+      let rstyle = document.getElementById('zooms')
+      if (rstyle)
+        document.body.removeChild(rstyle    )
+      let elem = document.getElementById(id)
+      if (elem)
+        elem.className = elem.className.replace('zooming', '')
+    }
+
+    setTimeout(onZoomEnd, 500)
+
+  }
+
+  // (evt) enterSpace
+  exitSpace(e) {
+    if (!this.state.lastSpace)
+      return
+
+    this.changeSpace({
+      from: this.state.currentSpace,
+      to: this.state.lastSpace,
+      target: this.container()
+    })
+  }
+
+  // (evt) enterSpace
+  enterSpace(e) {
+    let elem =  e.target.closest('.thing')
+    if (!elem)
+      return
+
+    let selectedSpace = this.state.things.nodes.get(parseInt(elem.id, 10))
+    if (!selectedSpace || (selectedSpace && selectedSpace.content !== 'space'))
+      return
+
+    this.changeSpace({
+      from: this.state.currentSpace,
+      to: selectedSpace,
+      target: elem,
+      zoomin: true
+    })
   }
 
   container() {
@@ -467,10 +569,10 @@ class Home extends React.Component {
 
       const r = ctx.getBoundingClientRect()
       const er = elem.getBoundingClientRect()
-      ctx.style.left = self.unit(
+      ctx.style.left = Settings.unit(
         er.left + er.width
       )
-      ctx.style.top = self.unit(
+      ctx.style.top = Settings.unit(
         Math.max(
           (e.clientY - r.height / 2 - container.offsetTop),
           (elem.offsetTop))
@@ -538,12 +640,12 @@ class Home extends React.Component {
     // taking initial shifts into account
     function moveAt(elem, pageX, pageY) {
       elem.style.zIndex = 1000;
-      elem.style.left = self.unit(pageX - shiftX - epsilonX)
-      elem.style.top = self.unit(pageY - shiftY - epsilonY)
+      elem.style.left = Settings.unit(pageX - shiftX - epsilonX)
+      elem.style.top = Settings.unit(pageY - shiftY - epsilonY)
 
       if (document.ctx && document.ctx.target === elem.id) {
-        document.ctx.style.left = self.unit(pageX - shiftX - epsilonX + r.width)
-        document.ctx.style.top = self.unit(pageY - shiftY - epsilonY)
+        document.ctx.style.left = Settings.unit(pageX - shiftX - epsilonX + r.width)
+        document.ctx.style.top = Settings.unit(pageY - shiftY - epsilonY)
       }
     }
 
@@ -645,10 +747,6 @@ class Home extends React.Component {
       self.updatePosition(elem)
       self.setState({moving: null})
     }
-  }
-
-  unit(v) {
-    return  (v + "px")
   }
 
   // get nodes that reference this node
@@ -777,60 +875,6 @@ class Home extends React.Component {
     this.setState(state)
   }
 
-  renderThing(n, e, c) {
-    c = c || null
-
-    let style = e ? {
-      top: e.y,
-      left: e.x
-    } : { // then item being rendered is 'nested'
-      backgroundColor: 'chucknorris'
-    }
-
-    if (this.state.moving
-     && this.state.moving.elem.id === n.id.toString()) {
-      style.top = this.unit(this.state.moving.y)
-      style.left = this.unit(this.state.moving.x)
-    }
-
-    return (
-      <div className={"thing" + ((n.content === ' space' && n.content) || '')}
-           id={n.id}
-           key={n.id}
-           style={style}
-           onMouseDown={this.handleClick.bind(this)}
-           onDragStart={null}
-      >
-        <h4>{n.label}</h4>
-
-        <div className="parsed">{(() => {
-          <div className="data">{n.data}</div>
-          //  <pre>{JSON.stringify(p,null,4)}</pre>
-          //  <p><small>{n.content}:{n.id}</small></p>
-
-          let p = this.process(n.data)
-          return !p ? null : <div>
-                               <div dangerouslySetInnerHTML={{ __html: p.data }}></div>
-                               {p.links.map(e => {
-                                 return <ReactTinyLink
-                                          cardSize="small"
-                                          showGraphic={true}
-                                          maxLine={2}
-                                          minLine={1}
-                                          url={e.link} />
-                               })}
-                             </div>
-        })()}</div>
-
-
-        <div className="mount">
-          <div className="dropzone" />
-          {c}
-        </div>
-     </div>
-    )
-  }
-
   renderNest(items, node, self, top) {
     if (!node || !items || !self)
       return
@@ -843,14 +887,15 @@ class Home extends React.Component {
     if (k) {
       const kids = Object.keys(k)
       if (kids && kids.length > 0) {
-        let thing = self.renderThing(
-            items.nodes.get(parseInt(node, 10)),
-            edge,
-            kids.map(e => {
+        let thing =
+          <Thing
+            node={items.nodes.get(parseInt(node, 10))}
+            edge={edge}
+            children={kids.map(e => {
               let {tops, thing} = this.renderNest(items, e, self, false)
               not_top = not_top.concat(tops)
               return thing
-            }))
+            })} />
 
         return {
           tops: not_top,
@@ -861,57 +906,13 @@ class Home extends React.Component {
 
     return {
       tops: not_top,
-      thing: self.renderThing(items.nodes.get(parseInt(node, 10)), edge)
-    }
-  }
-
-  imagep(link) {
-    if (!link)
-      return false
-    const i = link.match(/\.(png|jpg|jpeg|gif)$/g)
-    return i && i.length > 0 
-  }
-  
-  images(links) {
-    if (this.seqnil(links))
-      return links  
-    links.filter(l => this.imagep(l))
-  }           
-
-  seqnil(seq) {
-    return !seq || (seq && seq.length === 0)
-  }
-
-  links(text) {
-    let li =  text.match(/(http|ftp|https|file):[/]+([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?/g)
-    return li ? li.map(l => {return {
-      link: l,
-      image: this.imagep(l),
-    }}) : []
-  }
-  
-  // -> data -> text
-  process(text) {
-    if (!text)
-      return null
-
-    let self = this;
-    let props = {
-      data: text,
+      thing: <Thing node={items.nodes.get(parseInt(node, 10))}
+                    edge={edge} />
     }
 
-    props.links = this.links(text)
-
-    let t = props.links.forEach(l => {
-      let c =  `<a href=${l.link} target="_blank">${l.link}</a>`
-      if (l.image)
-        c =  `<img src=${l.link}></img>`
-
-      props.data = props.data.replace(l.link, c)
-    })
-    return props;
   }
-    
+
+
   renderItems(items) {
     if (!items) return null;
     let col = []
@@ -991,7 +992,9 @@ class Home extends React.Component {
                })
 
                for (const v in e.dataTransfer.items) {
-
+                 let el = document.createElement('pre')
+                 el.innerHTML = JSON.stringify(v, null, 4) + "\n\n" + JSON.stringify(e.dataTransfer.types)
+                 document.body.append(el)
                }
              }}
         >
@@ -1002,7 +1005,6 @@ class Home extends React.Component {
           }
         </div>
         <button id="print">print things</button>
-
       </div>
 
     );
