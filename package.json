@@ -11,6 +11,7 @@
     "child_process": false
   },
   "name": "mind-power",
+  "homepage": "http://mind-power.github.io/index",
   "description": null,
   "version": "0.0.829",
   "devDependencies": {

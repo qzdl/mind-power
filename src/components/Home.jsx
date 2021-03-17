@@ -342,10 +342,9 @@ class Home extends React.Component {
       // remove editor && events
       elem.className = elem.className.replace('editing', '')
       
-      try { // i don't have the mental fortitude to fix this stale render issu
+      try { // i don't have the mental fortitude to fix this stale render issue
         data.removeChild(editor)
         document.body.removeChild(s)
-
       } catch(e){}
 
       document.body.removeEventListener('mousedown', removeEditor)
@@ -425,7 +424,7 @@ class Home extends React.Component {
 
       style.innerHTML = `.zooming {
         transform: scaleX(${x}) scaleY(${y});
-        translate: -${target.style.left} -${target.style.top};
+        translate: -${left} -${top};
       }`
     }
 

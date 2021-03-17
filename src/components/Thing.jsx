@@ -21,7 +21,7 @@ class Thing extends React.Component {
   }
 
   links(text) {
-    let li =  text.match(/(http|ftp|https|file):[/]+([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?/g)
+    let li =  text.match(/(http|ftp|https|file):[/]+([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?/g)
     return li ? li.map(l => {return {
       link: l,
       image: this.imagep(l),
@@ -33,14 +33,12 @@ class Thing extends React.Component {
     if (!text)
       return null
 
-    let self = this;
     let props = {
       data: text,
     }
 
     props.links = this.links(text)
-
-    let t = props.links.forEach(l => {
+    props.links.forEach(l => {
       let c =  `<a href=${l.link} target="_blank">${l.link}</a>`
       if (l.image)
         c =  `<img src=${l.link}></img>`
@@ -62,13 +60,15 @@ class Thing extends React.Component {
 
     return <div>
              <div dangerouslySetInnerHTML={{ __html: p.data }}></div>
-             {p.links.map(e => {
-               return <ReactTinyLink
-                        cardSize="small"
-                        showGraphic={true}
-                        maxLine={2}
-                        minLine={1}
-                        url={e.link} />})}
+             {p.links.map((e, c) => {
+               return <div key={c}>{c}
+                        <ReactTinyLink
+                          cardSize="small"
+                          showGraphic={true}
+                          maxLine={2}
+                          minLine={1}
+                          url={e.link} />
+                        </div>})}
            </div>
   }
 
