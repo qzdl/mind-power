@@ -1,7 +1,6 @@
 /*
  context includes where you've been
 
-
   a space; an explicit organisation of things, with a name
 
    has some data
@@ -41,26 +40,11 @@
        go to the /space/ containing the original definition, and /focus/
 
 
-
- inspiration:
-   mercuryos:    https://mercuryos.com/
-   semilattice:  https://semilattice.xyz/
-   muse:         https://museapp.com/
-   roamresearch: https://roamresearch.com/
-   org-roam:     https://orgroam.com/
-   emacs-freex:  https://github.com/gdetre/emacs-freex/
-   graphbrain:   https://github.com/graphbrain/graphbrain/
-   memex:        https://github.com/steve-1820/memex
-
- research:
-   Augmenting Human Intellect: A Conceptual Framework
-     https://www.dougengelbart.org/content/view/138
-   Semantic Hypergraphs
-     TODO
 */
 
 import React from "react";
 import elasticlunr from "elasticlunr"
+import _ from "lodash"
 import Settings from './settings'
 import Index from './Index'
 import Stack from './Stack'
@@ -68,11 +52,6 @@ import Thing from './Thing'
 import Data from "./data"
 
 let objthings = Data.datamodel
-
-// let objthings = {
-//   'nodes': [
-//
-// }
 
 let ftindex =  elasticlunr(function() {
   this.addField('label');
@@ -106,16 +85,30 @@ class Home extends React.Component {
     view:  {},
     things: initthings,
     currentSpace: initthings.nodes.get(0),
-    spaceThings: this.spaceGraph(initthings, initthings.nodes.get(0))
+    spaceThings: this.spaceGraph(initthings, initthings.nodes.get(0)),
+    events: {
+      1: { // left click
+        thing: this.move,
+        c_thing: this.edit,
+        space: this.create,
+        c_space: this.createSpace
+      },
+      2: { // right click
+        thing: this.actions,
+      },
+      4: { // scroll
+        thing: this.enterSpace,
+        c_space: this.home,
+        space: this.exitSpace
+      }
+    }
   }
 
   handleSpaceChange(space) {
     this.getInfo()
-    console.log('ye')
   }
 
   componentDidUpdate() {
-    //if (document.ctx)  document.ctx.position()
     if (this.state.editing)
       this.edit(null, this.state.editing)
   }
@@ -144,13 +137,21 @@ class Home extends React.Component {
     // all nodes A connected to node e from E,
     //   where a from A is connected to SPACE (in E) | as B
 
+    let degreeSpace = {}
+    let nodeSpace = new Map()
     let se = graph.edges[space.id] // {}
+    if (!se) {
+      console.log('empty spacegraph', se, graph, space)
+
+      //nodeSpace.set(space.id, space)
+      degreeSpace[space.id] = {}
+      return {nodes: nodeSpace, edges: degreeSpace}
+    }
+
     let E = Object.keys(se)        // [""]
 
     // for each node (E.target), collect (A: edges & nodes) of
     // first degree to E where exists an edge A to space
-    let degreeSpace = {}
-    let nodeSpace = new Map()
     E.forEach(e => {
       // get edges for e | as {A}
       const A = graph.edges[e]
@@ -175,6 +176,7 @@ class Home extends React.Component {
     // combine space edges & degree edges | as {space subgraph edges}
     degreeSpace[space.id] = se
 
+    console.log('nodespace', nodeSpace)
     return  {
       nodes: nodeSpace,
       edges: degreeSpace
@@ -191,20 +193,20 @@ class Home extends React.Component {
     })
 
     // persist
-    let btn = document.getElementById('print')
-    btn.onclick = () => {
+    let pthing = document.getElementById('print_thing')
+    let pevent = document.getElementById('print_events')
+
+    pthing.onclick = () => {
       let fucking_javascript = []
-      for (const e of this.state.things.nodes.values()) {
-        fucking_javascript.push(e)
-      }
-      Settings.debug(
-        'mountSpace persist: ',
-        JSON.stringify({
-          nodes: fucking_javascript,
-          edges: this.state.things.edges}, null ,2))
+      for (const e of this.state.things.nodes.values()) { fucking_javascript.push(e) }
+      Settings.debug('mountSpace persist: ',
+                     JSON.stringify({
+                       nodes: fucking_javascript,
+                       edges: this.state.things.edges}, null ,2))
     }
-
-
+    pevent.onclick = () => {
+      console.log(this.state.events)
+    }
 
     let space = document.getElementById('container')
     // mapping view to position in space (TODO scrollable bg)
@@ -221,7 +223,7 @@ class Home extends React.Component {
   }
 
   handleClick(e) {
-    console.log('click', e)
+    console.log('handleClick; begin evt', e)
     e.preventDefault()
 
     let isThing = e.target.closest('.thing')
@@ -232,23 +234,6 @@ class Home extends React.Component {
       target = 'thing'
     else if (isContainer)
       target = 'space'
-
-    // so feasibly, you could map your own functions to this & change on the fly
-    const events = {
-      1: { // left click
-        thing: this.move,
-        c_thing: this.edit,
-        space: this.create
-      },
-      2: { // right click
-        thing: this.actions,
-      },
-      4: { // scroll
-        thing: this.enterSpace,
-        c_space: this.home,
-        space: this.exitSpace
-      }
-    }
 
     let dispatch = (events, button, target, ev) => {
       let eventgroup = events[button]
@@ -271,7 +256,7 @@ class Home extends React.Component {
       return act
     }
 
-    Settings.debug('handleClick dispatch:', dispatch(events, e.buttons, target, e))
+    Settings.debug('handleClick dispatch:', dispatch(this.state.events, e.buttons, target, e))
 
   }
 
@@ -330,7 +315,6 @@ class Home extends React.Component {
           return
       }
 
-
       // update node content
       let t = this.state.things
       let n = t.nodes.get(parseInt(item, 10))
@@ -364,32 +348,24 @@ class Home extends React.Component {
     }
   }
 
-  create(point) {
+  createSpace(point) {
+    this.create(point, {content: 'space', label: 'new space'})
+  }
+
+
+  create(point, other) {
     console.log('create: ', point, point.target.id)
 
     if (point.target.id !== 'container')
       return
 
-    this.addThing({x: point.layerX - 50, y: point.layerY - 50, editing: true})
+    this.addThing({x: point.layerX - 50, y: point.layerY - 50, editing: true, ...other})
   }
 
   navigate(point) {
     console.log('navigate: ', point)
     // TODO disambiguate click & drag movements against container
     // TODO map xy mouse movements to LR/UD scrolling
-  }
-
-  parentMatch(elem, depth) {
-    //console.log('parentMatch: ', depth, elem)
-    if (0 >= depth || !elem) {
-      return null
-    }
-
-    if (elem.className.match(/thing/)) {
-      return elem;
-    } else {
-      return this.parentMatch(elem.parentElement, --depth)
-    }
   }
 
   elementBelow(elem, x, y) {
@@ -401,60 +377,7 @@ class Home extends React.Component {
     return elemBelow
   }
 
-  changeSpace(props) {
 
-    /*
-
-      trigger zoom animation
-
-    onzoomend:
-      rebind spaceThings to selectedSpace
-*/
-    const {from, to, target, zoomin} = props
-
-
-    let style = document.createElement('style')
-    style.id = 'zooms'
-    if (zoomin && target) {
-      const r = target.getBoundingClientRect()
-      const [x, y, left, top] =
-        [window.innerWidth / r.width,
-         window.innerHeight / r.height,
-         target.style.left, target.style.right]
-
-      style.innerHTML = `.zooming {
-        transform: scaleX(${x}) scaleY(${y});
-        translate: -${left} -${top};
-      }`
-    }
-
-    else
-      style.innerHTML = `.zooming {
-        transform: scale(-.8);
-      }`
-
-    document.body.appendChild(style)
-    target.className += ' zooming'
-    let id = target.id;
-
-    let onZoomEnd = (e) => {
-      this.setState({
-        lastSpace: from,
-        spaceThings: this.spaceGraph(this.state.things, to),
-        currentSpace: to
-      })
-
-      let rstyle = document.getElementById('zooms')
-      if (rstyle)
-        document.body.removeChild(rstyle    )
-      let elem = document.getElementById(id)
-      if (elem)
-        elem.className = elem.className.replace('zooming', '')
-    }
-
-    setTimeout(onZoomEnd, 500)
-
-  }
 
   // (evt) enterSpace
   exitSpace(e) {
@@ -525,7 +448,9 @@ class Home extends React.Component {
         j({ nodes: self.state.things.nodes.get(parseInt(ctx.target, 10)),
             edges: self.state.things.edges[ctx.target]}))
     })
-
+    createButton("[x]", function() {
+       // TODO delete
+    })
 
     // bind transient context events
     document.body.addEventListener('mousedown', removeContext)
@@ -542,7 +467,6 @@ class Home extends React.Component {
 
     function removeContext(ev) {
       console.log('removeContext')
-
       // keep ctx if !!event, click is on target, or ctx
       if (ev) {
         let below = belowThing(ev)
@@ -551,7 +475,6 @@ class Home extends React.Component {
           belowThing(ev, '.context')))
         return
       }
-
 
       // fade out
       ctx.className = 'context'
@@ -593,12 +516,13 @@ class Home extends React.Component {
                    .closest(className)
     }
   }
+
   // (evt) move
   move(e) {
     e.preventDefault()
     let self = this;
     let elem = e.target.closest('.thing')
-    //let elem = this.parentMatch(e.target, 3)
+
     if (!elem) {
       console.log('move: invalid selection ', e.target)
       return;
@@ -630,10 +554,8 @@ class Home extends React.Component {
     document.addEventListener('mousemove', mouseMove)
     document.addEventListener('mouseup', mouseUp)
 
-
     let dropzone = null;
     let currentDroppable = null
-
 
     // moves the elem at (pageX, pageY) coordinates
     // taking initial shifts into account
@@ -748,25 +670,20 @@ class Home extends React.Component {
     }
   }
 
-  // get nodes that reference this node
-  spaceParent(space) {
-
-    //const t = this.state.things
-    //t.edges // obj
-    //this.state.currentSpace // id, label, content
-  }
-
   addThing(props) {
-    const {x, y, data, content, parent, editing} = props
+    const {x, y, data, content, label, parent, editing} = props
     let t = this.state.things
-    let s = this.state.currentSpace
+    const s = this.state.currentSpace
     let n = {
       id: this.state.things.newId(),
       content: content || "block",
       data: data || " ",
+      label: label || null
     }
 
     // bind NODE to SPACE
+    let ed = t.edges[s.id]
+    if (!ed) t.edges[s.id] = {}
     t.edges[s.id][n.id] = {}
 
     // bind NODE to ?PARENT
@@ -788,9 +705,9 @@ class Home extends React.Component {
 
     let i = this.state.ftindex;
     i.addDoc(n)
-    this.setState({
-      things: t,
-      spaceThings: this.spaceGraph(t, s),
+
+    // rebind state (triggers update)
+    this.updateThings(t, {
       ftindex: i,
       ...edit
     })
@@ -801,15 +718,13 @@ class Home extends React.Component {
   }
 
   updatePosition(elem) {
-    // things are positioned with respect to a space by their edge
-    console.log('updatePosition: ', elem)
-
+    // things are positioned with respect to a space (space->thing edge property)
     let t = this.state.things
     let edge = t.edges[this.state.currentSpace.id][elem.id];
     [edge.x, edge.y] = [elem.style.left, elem.style.top]
-    t.edges[this.state.currentSpace.id][elem.id] = edge;
+    t.edges[this.state.currentSpace.id][elem.id] = edge; // assuming space->node exists...
 
-    console.log('updated ', elem.id, ' as', edge)
+    // rebind state (triggers update)
     this.updateThings(t)
   }
 
@@ -824,7 +739,11 @@ class Home extends React.Component {
   updateRelationship(elem, parent, x, y) {
     console.log('updateRelationship: ', elem, parent)
 
-    let g = this.state.things;
+    // deep copy, so we can delete and rebind according to the rebder lifecycle
+    // a digusting reminder that half of these problems wouldn't exist if
+    // we were using persistent datastructures
+
+    let g = _.clone(this.state.things);
     const elemBelow = this.elementBelow(elem, x, y)
     const dropTarget = elemBelow.closest('.thing')
 
@@ -836,23 +755,22 @@ class Home extends React.Component {
         // delete edge for oldparent -> elem
         delete g.edges[parent.id][elem.id]
       }
-
     }
 
-    if (dropTarget) {
+    if (dropTarget) { // adding a new parent->child for 'dropTarget'->'elem'
       // if no edges exist for target, initialise {}
       if (!g.edges[dropTarget.id])
         g.edges[dropTarget.id] = {}
 
       // add edge for target -> elem
       g.edges[dropTarget.id][elem.id] = {}
-      this.updateThings(g)
+
     }
 
      if (!parent && dropTarget)
        elem.hidden = true;
 
-    //debugger;
+    this.updateThings(g)
   }
 
   updateMoving(elem, parent, props) {
@@ -873,6 +791,55 @@ class Home extends React.Component {
     }
     this.setState(state)
   }
+
+  changeSpace(props) {
+    /* trigger zoom animation
+
+    onzoomend:
+      rebind spaceThings to selectedSpace
+    */
+    const {from, to, target, zoomin} = props
+
+    let style = document.createElement('style')
+    style.id = 'zooms'
+    if (zoomin && target) {
+      const r = target.getBoundingClientRect()
+      const [x, y, left, top] =
+        [window.innerWidth / r.width,
+         window.innerHeight / r.height,
+         target.style.left, target.style.right]
+
+      style.innerHTML = `.zooming {
+        transform: scaleX(${x}) scaleY(${y});
+        translate: -${left} -${top};
+      }`
+    } else
+      style.innerHTML = `.zooming {
+        transform: scale(-.8);
+      }`
+
+    document.body.appendChild(style)
+    target.className += ' zooming'
+    let id = target.id;
+
+    let onZoomEnd = (e) => {
+      this.setState({
+        lastSpace: from,
+        spaceThings: this.spaceGraph(this.state.things, to),
+        currentSpace: to
+      })
+
+      let rstyle = document.getElementById('zooms')
+      if (rstyle)
+        document.body.removeChild(rstyle    )
+      let elem = document.getElementById(id)
+      if (elem)
+        elem.className = elem.className.replace('zooming', '')
+    }
+
+    setTimeout(onZoomEnd, 500)
+}
+
 
   renderNest(items, node, self, top) {
     if (!node || !items || !self)
@@ -913,7 +880,8 @@ class Home extends React.Component {
 
 
   renderItems(items) {
-    if (!items) return null;
+    console.log('renderItems, empty', items)
+    if (!items || (items && (!items.edges || !items.nodes))) return null;
     let col = []
     let not_top = []
 
@@ -929,6 +897,7 @@ class Home extends React.Component {
 
   render() {
     // TODO export :wayoff:
+    // TODO check thing multiple render
     // TODO allow for multiple moving :refactor:evt:
     // TODO shift selection (freehand bounding, box) :evt:
     // TODO space preview :view:render:refactor:
@@ -957,7 +926,14 @@ class Home extends React.Component {
     // TODO think about space local modifications :datamodel:
     // TODO ordering :datamodel:rendering:
     // DONE editor event :event:
+    // TODO 'data' parser; expand [[link]] and {{function}}
+    // TODO space context menu
+    //      - settings
+    //      - new thing
+    //
+    //      - new space
     // TODO figure out local storage :refactor:datamodel:integration:
+    // TODO figure out duplicate render
     console.log('home, render', this.state.moving)
 
     return (
@@ -975,7 +951,6 @@ class Home extends React.Component {
              onDragOver={(e) => {
                e.preventDefault()
                e.stopPropagation()
-//               console.log(e)
              }}
              onDrop={(e) => {
                e.preventDefault()
@@ -1003,7 +978,8 @@ class Home extends React.Component {
             this.renderItems(this.state.spaceThings)
           }
         </div>
-        <button id="print">print things</button>
+        <button id="print_thing">print things</button>
+        <button id="print_events">print events</button>
       </div>
 
     );
