@@ -1,5 +1,7 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import { HashRouter as Router, Route, Switch } from "react-router-dom";
+// HashRouter can be switched for BrowserRouter is not static (aka if there is a
+// server behind this, not SPA)
 import { Navigation, Home, Index, Dashboard } from "./components";
 
 function App() {
