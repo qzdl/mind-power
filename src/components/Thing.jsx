@@ -28,6 +28,25 @@ class Thing extends React.Component {
     }}) : []
   }
 
+  slugify(text) {
+    return text ? this.clean(text).replace(' ', "_").toLowerCase() : null
+  }
+
+  clean(text) { 
+    return text.replace("[[", "").replace("]]", "")
+  }
+  
+  ref(text) {
+    let li = text.match(/(\[\[.*\]\])/)
+    
+    let res = li ? li.map(l => {
+      return { link: l, slug: this.slugify(l), clean: this.clean(l) }
+    }) : []
+    console.log('refs processing: ', text, li, res)
+    return res
+    
+  }
+  
   // -> data -> text
   process(text) {
     if (!text)
@@ -36,7 +55,7 @@ class Thing extends React.Component {
     let props = {
       data: text,
     }
-
+    
     props.links = this.links(text)
     props.links.forEach(l => {
       let c =  `<a href=${l.link} target="_blank">${l.link}</a>`
@@ -45,6 +64,13 @@ class Thing extends React.Component {
 
       props.data = props.data.replace(l.link, c)
     })
+
+    props.refs = this.ref(text)
+    props.refs.forEach(l => {
+      let c = `<a href=${l.slug}>${l.clean}</a>`
+      props.data = props.data.replace(l.link, c)
+    })
+    
     return props;
   }
 
